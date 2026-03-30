@@ -2,6 +2,9 @@ import { NextResponse } from 'next/server'
 import fs from 'fs'
 import path from 'path'
 
+export const dynamic = 'force-dynamic'
+export const runtime = 'nodejs'
+
 const MUSIC_DIR = path.join(process.cwd(), 'public', 'music')
 const AUDIO_EXTS = ['.mp3', '.webm', '.wav', '.ogg', '.m4a']
 
