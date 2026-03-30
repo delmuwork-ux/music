@@ -50,6 +50,7 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
       // Shuffle and repeat state
       const [shuffle, setShuffle] = useState(false)
       const [repeat, setRepeat] = useState(false)
+      const [shuffleQueue, setShuffleQueue] = useState<number[]>([])
 
       const [hovered, setHovered] = useState(false)
       const [tracks, setTracks] = useState<Track[]>([])
@@ -88,6 +89,28 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
         pendingIndex.current = player.trackIndex
         runSweep(player.trackIndex)
       }, [player.trackIndex])
+
+      const createShuffleQueue = (currentIndex: number) => {
+        const remaining = tracks
+          .map((_, index) => index)
+          .filter(index => index !== currentIndex)
+
+        for (let i = remaining.length - 1; i > 0; i -= 1) {
+          const j = Math.floor(Math.random() * (i + 1))
+          ;[remaining[i], remaining[j]] = [remaining[j], remaining[i]]
+        }
+
+        return remaining
+      }
+
+      useEffect(() => {
+        if (!shuffle || tracks.length <= 1) return
+
+        setShuffleQueue(prev => {
+          const normalized = prev.filter(index => index !== player.trackIndex)
+          return normalized.length > 0 ? normalized : createShuffleQueue(player.trackIndex)
+        })
+      }, [player.trackIndex, shuffle, tracks])
 
       function handlePrev() {
         player.prev()
@@ -152,14 +175,15 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
         }
       }
 
-      // Shuffle logic: randomize next track
+      // Shuffle logic: randomize next track without repeating until all tracks are played
       function handleNext() {
         if (shuffle && tracks.length > 1) {
-          let nextIdx: number
-          do {
-            nextIdx = Math.floor(Math.random() * tracks.length)
-          } while (nextIdx === player.trackIndex)
-          player.setTrack(nextIdx)
+          setShuffleQueue(prev => {
+            const queue = prev.length > 0 ? prev : createShuffleQueue(player.trackIndex)
+            const [nextIdx, ...rest] = queue
+            player.setTrack(nextIdx)
+            return rest
+          })
         } else if (repeat) {
           player.setTrack(player.trackIndex)
         } else {
