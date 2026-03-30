@@ -89,6 +89,20 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
         runSweep(player.trackIndex)
       }, [player.trackIndex])
 
+      function handlePrev() {
+        player.prev()
+        if (!player.playing) {
+          player.play()
+        }
+      }
+
+      function handleTrackSelect(index: number) {
+        player.setTrack(index)
+        if (!player.playing) {
+          player.play()
+        }
+      }
+
       useEffect(() => {
         const handler = () => player.play()
         const started = () => setVisibleNow(true)
@@ -151,6 +165,10 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
         } else {
           player.next()
         }
+
+        if (!player.playing) {
+          player.play()
+        }
       }
 
       if (loading) {
@@ -193,7 +211,7 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
             : "0 0 40px rgba(255,255,255,.05), 0 4px 20px -5px rgba(0,0,0,.5)",
         }}
       >
-        <AnimatePresence>
+        <AnimatePresence initial={false}>
           {isVisible && (
             <motion.div
               className="absolute inset-0 bg-white z-30 pointer-events-none"
@@ -327,7 +345,7 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
                 {tracks.map((track, i) => (
                   <button
                     key={`${track.title}-${i}`}
-                    onClick={() => player.setTrack(i)}
+                    onClick={() => handleTrackSelect(i)}
                     className={`w-full flex items-center gap-3 px-6 text-left transition-all duration-300 ${
                       player.trackIndex === i ? "bg-white/5" : "hover:bg-white/5"
                     }`}
@@ -355,52 +373,52 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
             </div>
           </motion.div>
 
-          <div className="mt-3 grid grid-cols-[1fr_auto_1fr] items-center gap-1">
-            <div className="flex items-center justify-end gap-1">
+          <div className="mt-3 grid grid-cols-[1fr_auto_1fr] items-center gap-3">
+            <div className="flex items-center justify-end gap-3">
               <button
                 onClick={() => setShuffle(s => !s)}
-                className={`w-8 h-8 flex items-center justify-center ${shuffle ? 'text-blue-400' : 'text-white/50'} hover:text-white`}
+                className={`w-10 h-10 flex items-center justify-center ${shuffle ? 'text-blue-400' : 'text-white/50'} hover:text-white`}
                 title="Shuffle"
               >
-                <Shuffle className="w-5 h-5" />
+                <Shuffle className="w-6 h-6" />
               </button>
 
               <motion.button
-                onClick={player.prev}
-                className="w-9 h-9 text-white/50 hover:text-white hover:bg-white/10 transition-all flex items-center justify-center"
+                onClick={handlePrev}
+                className="w-10 h-10 text-white/50 hover:text-white hover:bg-white/10 transition-all flex items-center justify-center"
                 whileTap={{ scale: 0.9 }}
               >
-                <SkipBack className="w-4 h-4" fill="currentColor" />
+                <SkipBack className="w-5 h-5" fill="currentColor" />
               </motion.button>
             </div>
 
             <motion.button
               onClick={player.toggle}
-              className="w-11 h-11 bg-white flex items-center justify-center hover:scale-105 transition-transform"
+              className="w-12 h-12 bg-white flex items-center justify-center hover:scale-105 transition-transform"
               whileTap={{ scale: 0.95 }}
             >
               {player.playing ? (
                 <Pause className="text-black w-4 h-4" fill="currentColor" />
               ) : (
-                <Play className="text-black w-4 h-4 ml-0.5" fill="currentColor" />
+                <Play className="text-black w-4 h-4" fill="currentColor" />
               )}
             </motion.button>
 
-            <div className="flex items-center justify-start gap-1">
+            <div className="flex items-center justify-start gap-3">
               <motion.button
                 onClick={handleNext}
-                className="w-9 h-9 text-white/50 hover:text-white hover:bg-white/10 transition-all flex items-center justify-center"
+                className="w-10 h-10 text-white/50 hover:text-white hover:bg-white/10 transition-all flex items-center justify-center"
                 whileTap={{ scale: 0.9 }}
               >
-                <SkipForward className="w-4 h-4" fill="currentColor" />
+                <SkipForward className="w-5 h-5" fill="currentColor" />
               </motion.button>
 
               <button
                 onClick={() => setRepeat(r => !r)}
-                className={`w-8 h-8 flex items-center justify-center ${repeat ? 'text-blue-400' : 'text-white/50'} hover:text-white`}
+                className={`w-10 h-10 flex items-center justify-center ${repeat ? 'text-blue-400' : 'text-white/50'} hover:text-white`}
                 title="Loop"
               >
-                <Repeat className="w-5 h-5" />
+                <Repeat className="w-6 h-6" />
               </button>
             </div>
           </div>

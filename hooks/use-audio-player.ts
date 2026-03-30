@@ -51,7 +51,7 @@ export function useAudioPlayer({ tracks, autoPlay = false }: UseAudioPlayerOptio
       setLoadErrors(prev => ({ ...prev, [trackIndex]: true }))
     }
 
-    if (readyRef.current) {
+    if (readyRef.current || autoPlayRef.current) {
       audio.play().then(() => {
         setPlaying(true)
         window.dispatchEvent(new CustomEvent("musicStarted"))
