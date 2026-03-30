@@ -22,6 +22,7 @@ export function useAudioPlayer({ tracks, autoPlay = false }: UseAudioPlayerOptio
   const currentTrack = tracks[trackIndex]
 
   useEffect(() => {
+    if (!currentTrack || !currentTrack.src) return;
     const audio = new Audio(currentTrack.src)
     audio.preload = "auto"
     audioRef.current = audio
@@ -31,8 +32,6 @@ export function useAudioPlayer({ tracks, autoPlay = false }: UseAudioPlayerOptio
         setProgress((audio.currentTime / audio.duration) * 100)
       }
     }
-
-
 
     audio.onended = () => {
       setTrackIndex(i => (i + 1) % tracks.length)
@@ -56,6 +55,10 @@ export function useAudioPlayer({ tracks, autoPlay = false }: UseAudioPlayerOptio
       audio.play().then(() => {
         setPlaying(true)
         window.dispatchEvent(new CustomEvent("musicStarted"))
+        // set a marker so listeners mounted later can check
+        // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+        // @ts-ignore
+        window.__musicStarted = true
       }).catch(() => {})
     }
 
@@ -65,58 +68,7 @@ export function useAudioPlayer({ tracks, autoPlay = false }: UseAudioPlayerOptio
       audio.onended = null
       audio.oncanplaythrough = null
     }
-  }, [trackIndex, currentTrack.src, tracks.length])
-
-  useEffect(() => {
-    const handleInteraction = () => {
-      if (readyRef.current) return
-      readyRef.current = true
-      setReady(true)
-      
-      const audio = audioRef.current
-      if (audio && autoPlayRef.current) {
-        audio.play().then(() => {
-          setPlaying(true)
-          // notify UI that music started so components can appear
-          window.dispatchEvent(new CustomEvent("musicStarted"))
-          // set a marker so listeners mounted later can check
-          // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-          // @ts-ignore
-          window.__musicStarted = true
-        }).catch(() => {})
-      }
-    }
-
-    const handleUnlockAudio = () => {
-      // mark that the user requested music and ensure play happens
-      autoPlayRef.current = true
-      handleInteraction()
-    }
-
-    // If a page-level click already requested audio before this hook mounted,
-    // honor it immediately.
-    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-    // @ts-ignore
-    if ((typeof window !== "undefined" && (window.__audioUnlockRequested === true))) {
-      handleUnlockAudio()
-      // clear flag so we don't replay on every mount
-      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-      // @ts-ignore
-      window.__audioUnlockRequested = false
-    }
-
-    document.addEventListener("click", handleInteraction)
-    document.addEventListener("touchstart", handleInteraction)
-    document.addEventListener("keydown", handleInteraction)
-    window.addEventListener("unlockAudio", handleUnlockAudio)
-    
-    return () => {
-      document.removeEventListener("click", handleInteraction)
-      document.removeEventListener("touchstart", handleInteraction)
-      document.removeEventListener("keydown", handleInteraction)
-      window.removeEventListener("unlockAudio", handleUnlockAudio)
-    }
-  }, [])
+  }, [trackIndex, currentTrack?.src, tracks.length])
 
   useEffect(() => {
     const audio = audioRef.current

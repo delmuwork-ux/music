@@ -3,12 +3,22 @@
 import { useState, useEffect, useRef } from "react"
 import { motion, AnimatePresence, useAnimationControls } from "framer-motion"
 import { Play, Pause, SkipBack, SkipForward, Music2 } from "lucide-react"
+import { Repeat, Shuffle } from "lucide-react"
+
 import { useAudioPlayer } from "@/hooks/use-audio-player"
-import { TRACKS, ANIMATION_CONFIG } from "@/lib/constants"
-import { getAssetPath } from "@/lib/utils"
+import { ANIMATION_CONFIG } from "@/lib/constants"
+
+
 
 interface MusicPlayerProps {
   isVisible?: boolean
+}
+
+interface Track {
+  title: string
+  artist: string
+  duration: string
+  src: string
 }
 
 function AudioBars({ playing }: { playing: boolean }) {
@@ -34,92 +44,127 @@ function AudioBars({ playing }: { playing: boolean }) {
   )
 }
 
+
+
 export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
-  const [hovered, setHovered] = useState(false)
-  const player = useAudioPlayer({
-    tracks: TRACKS.map(t => ({ ...t, src: getAssetPath(t.src) })),
-    autoPlay: true,
-  })
+      // Shuffle and repeat state
+      const [shuffle, setShuffle] = useState(false)
+      const [repeat, setRepeat] = useState(false)
 
-  const expanded = hovered && isVisible
-  const [visibleNow, setVisibleNow] = useState(isVisible)
-  const [nameSweep, setNameSweep] = useState(false)
-  const [displayedIndex, setDisplayedIndex] = useState(player.trackIndex)
-  const pendingIndex = useRef<number>(player.trackIndex)
+      const [hovered, setHovered] = useState(false)
+      const [tracks, setTracks] = useState<Track[]>([])
+      const [loading, setLoading] = useState(true)
+      const [visibleNow, setVisibleNow] = useState(isVisible)
+      const [nameSweep, setNameSweep] = useState(false)
+      const [displayedIndex, setDisplayedIndex] = useState(0)
+      const pendingIndex = useRef<number>(0)
+      const nameControls = useAnimationControls()
+      const sweepToken = useRef(0)
+      const queueRef = useRef<HTMLDivElement | null>(null)
+      const expanded = true
 
-  const nameControls = useAnimationControls()
+      useEffect(() => {
+        async function fetchTracks() {
+          setLoading(true)
+          try {
+            const res = await fetch("/api/music-list")
+            const data = await res.json()
+            setTracks(data.tracks || [])
+          } catch (error) {
+            setTracks([])
+          }
+          setLoading(false)
+        }
+        fetchTracks()
+      }, [])
 
-  const sweepToken = useRef(0)
+      const player = useAudioPlayer({
+        tracks,
+        autoPlay: true,
+      })
 
-  // start a sweep animation; aborts any previous sweep when retriggered
-  const runSweep = async (requestedIndex: number) => {
-    const myToken = ++sweepToken.current
-    // show the sweep overlay
-    setNameSweep(true)
+      useEffect(() => {
+        setDisplayedIndex(player.trackIndex)
+        pendingIndex.current = player.trackIndex
+        runSweep(player.trackIndex)
+      }, [player.trackIndex])
 
-    // stop any running animation and set start position
-    nameControls.stop()
-    nameControls.set({ x: "-100%" })
+      useEffect(() => {
+        const handler = () => player.play()
+        const started = () => setVisibleNow(true)
+        window.addEventListener("unlockAudio", handler)
+        window.addEventListener("musicStarted", started)
 
-    const D = (ANIMATION_CONFIG.sweep.duration || 0.5)
-    const half = D / 2
+        if ((typeof window !== "undefined") && (window as any).__musicStarted) setVisibleNow(true)
 
-    try {
-      await nameControls.start({ x: "0%", transition: { duration: half, ease: ANIMATION_CONFIG.sweep.ease } })
-      // pause at center
-      await new Promise<void>(r => setTimeout(r, 100))
+        return () => {
+          window.removeEventListener("unlockAudio", handler)
+          window.removeEventListener("musicStarted", started)
+        }
+      }, [player])
 
-      // if another sweep started meanwhile, abort this one
-      if (myToken !== sweepToken.current) return
+      useEffect(() => {
+        if (!isVisible) setVisibleNow(false)
+      }, [isVisible])
 
-      // update displayed text to the requested index
-      setDisplayedIndex(requestedIndex)
+      useEffect(() => {
+        const el = queueRef.current
+        if (!el) return
+        const top = player.trackIndex * 48
+        el.scrollTo({ top, behavior: "smooth" })
+      }, [player.trackIndex])
 
-      await nameControls.start({ x: "100%", transition: { duration: half, ease: ANIMATION_CONFIG.sweep.ease } })
-    } finally {
-      // only hide the overlay if we are the active sweep
-      if (myToken === sweepToken.current) setNameSweep(false)
-    }
-  }
+      async function runSweep(requestedIndex: number) {
+        const myToken = ++sweepToken.current
+        setNameSweep(true)
 
-  useEffect(() => {
-    // store the requested index and start a fresh sweep; this will cancel any prior sweep
-    pendingIndex.current = player.trackIndex
-    runSweep(player.trackIndex)
-  }, [player.trackIndex])
+        nameControls.stop()
+        nameControls.set({ x: "-100%" })
 
-  // listen for overlay unlock event (fires inside the user's click) and play immediately
-  useEffect(() => {
-    const handler = () => {
-      player.play()
-    }
-    const started = () => setVisibleNow(true)
-    window.addEventListener("unlockAudio", handler)
-    window.addEventListener("musicStarted", started)
+        const D = (ANIMATION_CONFIG.sweep.duration || 0.5)
+        const half = D / 2
 
-    // if the music already started (rare), show immediately
-    if ((typeof window !== "undefined") && (window as any).__musicStarted) setVisibleNow(true)
+        try {
+          await nameControls.start({ x: "0%", transition: { duration: half, ease: ANIMATION_CONFIG.sweep.ease } })
+          await new Promise<void>(resolve => setTimeout(resolve, 100))
 
-    return () => {
-      window.removeEventListener("unlockAudio", handler)
-      window.removeEventListener("musicStarted", started)
-    }
-  }, [player])
+          if (myToken !== sweepToken.current) return
 
-  useEffect(() => {
-    if (!isVisible) setVisibleNow(false)
-  }, [isVisible])
+          setDisplayedIndex(requestedIndex)
 
-  const displayed = TRACKS[displayedIndex] ?? player.currentTrack
-  const queueRef = useRef<HTMLDivElement | null>(null)
+          await nameControls.start({ x: "100%", transition: { duration: half, ease: ANIMATION_CONFIG.sweep.ease } })
+        } finally {
+          if (myToken === sweepToken.current) setNameSweep(false)
+        }
+      }
 
-  useEffect(() => {
-    const el = queueRef.current
-    if (!el) return
-    const top = player.trackIndex * 48
-    el.scrollTo({ top, behavior: "smooth" })
-  }, [player.trackIndex])
+      // Shuffle logic: randomize next track
+      function handleNext() {
+        if (shuffle && tracks.length > 1) {
+          let nextIdx: number
+          do {
+            nextIdx = Math.floor(Math.random() * tracks.length)
+          } while (nextIdx === player.trackIndex)
+          player.setTrack(nextIdx)
+        } else if (repeat) {
+          player.setTrack(player.trackIndex)
+        } else {
+          player.next()
+        }
+      }
 
+      if (loading) {
+        return <div className="text-white">Đang tải danh sách nhạc...</div>;
+      }
+      if (!tracks || tracks.length === 0) {
+        return <div className="text-white">Không có file nhạc nào trong thư mục <b>public/music</b>.</div>;
+      }
+
+  const displayed = tracks[displayedIndex] ?? player.currentTrack ?? { title: '', artist: '', duration: '', src: '' }
+
+
+  // Chiều cao cố định: header + queue + padding + controls + extra spacing
+  const FIXED_HEIGHT = 48 + (48 * 5) + 40 + 80 + 20;
 
   return (
     <motion.div
@@ -139,7 +184,7 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
         className="bg-[#0a0a0a]/95 border border-white/10 overflow-hidden backdrop-blur-xl relative"
         animate={{
           width: expanded ? 340 : 180,
-          height: expanded ? 80 + 32 + TRACKS.length * 52 : 48,
+          height: expanded ? FIXED_HEIGHT : 48,
         }}
         transition={ANIMATION_CONFIG.sweep}
         style={{
@@ -229,61 +274,31 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0.15 }}
               >
-                <div className="flex items-center gap-3">
-                  <div className="min-w-0 flex-1 relative overflow-hidden">
-                    <div className="relative">
+                <div className="flex flex-col gap-3">
+                  <div className="min-w-0 w-full relative overflow-hidden">
+                    <div className="relative w-full flex flex-col justify-center" style={{ minHeight: 32 }}>
                       <AnimatePresence>
                         {nameSweep && (
                           <motion.div
-                            className="absolute inset-0 bg-white z-0 pointer-events-none"
+                            key={`sweep-${player.trackIndex}`}
+                            className="absolute left-0 top-0 h-full bg-white/90 z-10 pointer-events-none"
                             initial={{ x: "-100%" }}
                             animate={nameControls}
+                            exit={{ opacity: 0 }}
+                            style={{ borderRadius: 0, height: '100%', width: '100%' }}
                           />
                         )}
                       </AnimatePresence>
-
-                      <p className="font-medium text-white truncate leading-tight text-[15px] relative z-10">
+                      <p className="font-medium text-white truncate leading-tight text-[15px] relative z-20" style={{ position: 'relative', height: 24, lineHeight: '24px', fontSize: 15 }}>
                         {displayed.title}
                       </p>
-                      <p className="text-white/50 truncate text-xs mt-0.5 relative z-10">{displayed.artist}</p>
+                      <p className="text-white/50 truncate text-xs mt-0.5 relative z-20" style={{ fontSize: 12, lineHeight: '16px' }}>{displayed.artist}</p>
                     </div>
-                  </div>
-
-                  <div className="flex items-center gap-1">
-                    <motion.button
-                      onClick={player.prev}
-                      className="w-9 h-9 text-white/50 hover:text-white hover:bg-white/10 transition-all flex items-center justify-center"
-                      whileTap={{ scale: 0.9 }}
-                    >
-                      <SkipBack className="w-4 h-4" fill="currentColor" />
-                    </motion.button>
-
-                    <motion.button
-                      onClick={player.toggle}
-                      className="w-11 h-11 bg-white flex items-center justify-center hover:scale-105 transition-transform"
-                      whileTap={{ scale: 0.95 }}
-                    >
-                      {player.playing ? (
-                        <Pause className="text-black w-4 h-4" fill="currentColor" />
-                      ) : (
-                        <Play className="text-black w-4 h-4 ml-0.5" fill="currentColor" />
-                      )}
-                    </motion.button>
-
-                    <motion.button
-                      onClick={player.next}
-                      className="w-9 h-9 text-white/50 hover:text-white hover:bg-white/10 transition-all flex items-center justify-center"
-                      whileTap={{ scale: 0.9 }}
-                    >
-                      <SkipForward className="w-4 h-4" fill="currentColor" />
-                    </motion.button>
                   </div>
                 </div>
               </motion.div>
             )}
           </AnimatePresence>
-
-
 
           <motion.div
             animate={{ height: expanded ? "auto" : 0, marginTop: expanded ? 16 : 0, opacity: expanded ? 1 : 0 }}
@@ -294,11 +309,11 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
               <div className="flex items-center justify-between mb-3">
                 <p className="text-[10px] text-white/40 uppercase tracking-[.15em] font-medium">Queue</p>
                 <p className="text-[10px] text-white/30 font-mono">
-                  {player.trackIndex + 1}/{TRACKS.length}
+                  {player.trackIndex + 1}/{tracks.length}
                 </p>
               </div>
 
-              <div className="relative overflow-y-auto" ref={queueRef} style={{ maxHeight: (TRACKS.length * 48) > (48 * 4) ? (48 * 4) : TRACKS.length * 48 }}>
+              <div className="relative overflow-y-auto" ref={queueRef} style={{ maxHeight: 48 * 5, minHeight: 48 * 5 }}>
                 <motion.div
                   className="absolute left-0 right-0 flex items-center justify-between pointer-events-none z-10 px-2"
                   animate={{ top: player.trackIndex * 48 }}
@@ -309,7 +324,7 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
                   <span className="text-white text-sm font-mono animate-pulse">&lt;</span>
                 </motion.div>
 
-                {TRACKS.map((track, i) => (
+                {tracks.map((track, i) => (
                   <button
                     key={`${track.title}-${i}`}
                     onClick={() => player.setTrack(i)}
@@ -339,6 +354,56 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
               </div>
             </div>
           </motion.div>
+
+          <div className="mt-3 grid grid-cols-[1fr_auto_1fr] items-center gap-1">
+            <div className="flex items-center justify-end gap-1">
+              <button
+                onClick={() => setShuffle(s => !s)}
+                className={`w-8 h-8 flex items-center justify-center ${shuffle ? 'text-blue-400' : 'text-white/50'} hover:text-white`}
+                title="Shuffle"
+              >
+                <Shuffle className="w-5 h-5" />
+              </button>
+
+              <motion.button
+                onClick={player.prev}
+                className="w-9 h-9 text-white/50 hover:text-white hover:bg-white/10 transition-all flex items-center justify-center"
+                whileTap={{ scale: 0.9 }}
+              >
+                <SkipBack className="w-4 h-4" fill="currentColor" />
+              </motion.button>
+            </div>
+
+            <motion.button
+              onClick={player.toggle}
+              className="w-11 h-11 bg-white flex items-center justify-center hover:scale-105 transition-transform"
+              whileTap={{ scale: 0.95 }}
+            >
+              {player.playing ? (
+                <Pause className="text-black w-4 h-4" fill="currentColor" />
+              ) : (
+                <Play className="text-black w-4 h-4 ml-0.5" fill="currentColor" />
+              )}
+            </motion.button>
+
+            <div className="flex items-center justify-start gap-1">
+              <motion.button
+                onClick={handleNext}
+                className="w-9 h-9 text-white/50 hover:text-white hover:bg-white/10 transition-all flex items-center justify-center"
+                whileTap={{ scale: 0.9 }}
+              >
+                <SkipForward className="w-4 h-4" fill="currentColor" />
+              </motion.button>
+
+              <button
+                onClick={() => setRepeat(r => !r)}
+                className={`w-8 h-8 flex items-center justify-center ${repeat ? 'text-blue-400' : 'text-white/50'} hover:text-white`}
+                title="Loop"
+              >
+                <Repeat className="w-5 h-5" />
+              </button>
+            </div>
+          </div>
         </motion.div>
       </motion.div>
     </motion.div>
