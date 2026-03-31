@@ -508,7 +508,7 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
               >
                 <Shuffle className="w-6 h-6" />
                 {shuffle && (
-                  <div className="absolute bottom-1 right-1 w-1.5 h-1.5 bg-white rounded-full"></div>
+                  <div className="absolute left-1 top-1/2 transform -translate-y-1/2 w-1.5 h-1.5 bg-white rounded-full"></div>
                 )}
               </button>
 
