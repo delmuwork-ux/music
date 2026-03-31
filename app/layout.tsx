@@ -42,7 +42,7 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="vi">
+    <html lang="vi" className="light">
       <body className={`font-sans antialiased ${inter.className}`}>
         {children}
         <Analytics />

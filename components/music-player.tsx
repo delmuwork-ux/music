@@ -143,10 +143,13 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
       }
 
       function handleTrackSelect(index: number) {
-        player.setTrack(index)
+        const action = () => player.setTrack(index)
+        
         if (!player.playing) {
           player.play()
         }
+
+        performAnimatedTrackSwitch(action)
       }
 
       useEffect(() => {
@@ -255,17 +258,13 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
           skipNextSweepRef.current = true
           action()
 
-          // Phase 4: Sweep out to reveal new track - with explicit exit animation
-          const exitPromise = Promise.all([
+          // Phase 4: Sweep out to reveal new track
+          await Promise.all([
             nameControls.start({ x: "100%", transition: { duration: half, ease: ANIMATION_CONFIG.sweep.ease } }),
             thumbControls.start({ y: "100%", transition: { duration: half, ease: ANIMATION_CONFIG.sweep.ease } }),
           ])
           
-          await exitPromise
-          
-          // Phase 5: Wait a bit then hide the sweep elements with exit animation
-          await new Promise<void>(resolve => setTimeout(resolve, 50))
-          
+          // Phase 5: Immediately hide the sweep elements after animation completes
           if (myToken === sweepToken.current) {
             setNameSweep(false)
             setThumbSweep(false)
@@ -330,10 +329,10 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
       }, [displayed.title, titleControls])
 
       if (loading) {
-        return <div className="text-white">Đang tải danh sách nhạc...</div>;
+        return <div className="!text-white">Đang tải danh sách nhạc...</div>;
       }
       if (!tracks || tracks.length === 0) {
-        return <div className="text-white">Không có file nhạc nào trong thư mục <b>public/music</b>.</div>;
+        return <div className="!text-white">Không có file nhạc nào trong thư mục <b>public/music</b>.</div>;
       }
 
       // Chiều cao cố định để chạy gần full viewport
@@ -394,7 +393,7 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
               >
                 <motion.button
                   onClick={player.toggle}
-                  className="w-7 h-7 bg-white text-black rounded-none flex items-center justify-center flex-shrink-0 hover:bg-slate-100 transition-transform"
+                  className="w-7 h-7 !bg-white !text-black rounded-none flex items-center justify-center flex-shrink-0 hover:!bg-slate-100 transition-transform"
                   whileTap={{ scale: 0.95 }}
                 >
                   {player.playing ? (
@@ -409,14 +408,14 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
                     <AnimatePresence>
                       {nameSweep && (
                         <motion.div
-                          className="absolute inset-0 bg-white z-0 pointer-events-none"
+                          className="absolute inset-0 !bg-white z-0 pointer-events-none"
                           initial={{ x: "-100%" }}
                           animate={nameControls}
                           exit={{ opacity: 0, transition: { duration: 0 } }}
                         />
                       )}
                     </AnimatePresence>
-                    <p className="text-[11px] font-medium text-white truncate leading-tight relative z-10">
+                    <p className="text-[11px] font-medium !text-white truncate leading-tight relative z-10">
                       {displayed.title}
                     </p>
                   </div>
@@ -446,7 +445,7 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
                             <AnimatePresence mode="wait">
                               {thumbSweep && (
                                 <motion.div
-                                  key={`thumb-sweep-${player.trackIndex}`}
+                                  key="thumb-sweep"
                                   className="absolute inset-x-0 top-0 h-full bg-white z-20 pointer-events-none"
                                   initial={{ y: "-100%" }}
                                   animate={thumbControls}
@@ -467,7 +466,7 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
                         <AnimatePresence mode="wait">
                           {nameSweep && (
                             <motion.div
-                              key={`sweep-${player.trackIndex}`}
+                              key="name-sweep"
                               className="absolute inset-0 bg-white z-10 pointer-events-none"
                               initial={{ x: "-100%" }}
                               animate={nameControls}
