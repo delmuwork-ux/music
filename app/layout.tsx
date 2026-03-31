@@ -42,8 +42,8 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="vi" className="light">
-      <body className={`font-sans antialiased ${inter.className}`}>
+    <html lang="vi" className="light" style={{ colorScheme: 'light' }}>
+      <body className={`font-sans antialiased ${inter.className}`} style={{ colorScheme: 'light' }}>
         {children}
         <Analytics />
       </body>
