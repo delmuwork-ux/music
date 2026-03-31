@@ -61,6 +61,7 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
       const [nameSweep, setNameSweep] = useState(false)
       const [thumbSweep, setThumbSweep] = useState(false)
       const [displayedIndex, setDisplayedIndex] = useState(0)
+      const [isAnimating, setIsAnimating] = useState(false)
       const pendingIndex = useRef<number>(0)
       const nameControls = useAnimationControls()
       const titleControls = useAnimationControls()
@@ -225,6 +226,7 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
         }
 
         isAnimatingRef.current = true
+        setIsAnimating(true)
 
         try {
           setNameSweep(true)
@@ -264,6 +266,7 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
             setThumbSweep(false)
           }
           isAnimatingRef.current = false
+          setIsAnimating(false)
         }
       }
 
@@ -549,7 +552,7 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
                 onClick={() => {
                   setShuffle(s => !s)
                 }}
-                disabled={isAnimatingRef.current}
+                disabled={isAnimating}
                 className={`w-10 h-10 flex items-center justify-center text-white ${shuffle ? 'bg-white/10' : 'bg-transparent'} hover:bg-white/10 transition-all rounded-full relative disabled:opacity-50 disabled:cursor-not-allowed`}
                 title="Shuffle"
               >
@@ -561,7 +564,7 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
 
               <motion.button
                 onClick={handlePrev}
-                disabled={isAnimatingRef.current}
+                disabled={isAnimating}
                 className="w-10 h-10 text-white hover:text-white hover:bg-white/10 transition-all flex items-center justify-center rounded-full disabled:opacity-50 disabled:cursor-not-allowed"
                 whileTap={{ scale: 0.9 }}
               >
@@ -584,7 +587,7 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
             <div className="flex items-center justify-start gap-3">
               <motion.button
                 onClick={handleNext}
-                disabled={isAnimatingRef.current}
+                disabled={isAnimating}
                 className="w-10 h-10 text-white hover:text-white hover:bg-white/10 transition-all flex items-center justify-center rounded-full disabled:opacity-50 disabled:cursor-not-allowed"
                 whileTap={{ scale: 0.9 }}
               >
