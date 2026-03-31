@@ -92,6 +92,7 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
       })
 
       const mountedRef = useRef(false)
+      const initialLoadRef = useRef(true)
       useEffect(() => {
         mountedRef.current = true
         return () => {
@@ -102,7 +103,10 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
       useEffect(() => {
         setDisplayedIndex(player.trackIndex)
         pendingIndex.current = player.trackIndex
-        runSweep(player.trackIndex)
+        if (!initialLoadRef.current) {
+          runSweep(player.trackIndex)
+        }
+        initialLoadRef.current = false
       }, [player.trackIndex])
 
       const createShuffleQueue = (currentIndex: number) => {
@@ -168,9 +172,7 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
 
       async function runSweep(requestedIndex: number) {
         const myToken = ++sweepToken.current
-        setNameSweep(true)
-        setThumbSweep(true)
-
+        
         if (!mountedRef.current) {
           return
         }
@@ -178,12 +180,15 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
         await new Promise<void>(resolve => requestAnimationFrame(() => resolve()))
         if (myToken !== sweepToken.current || !mountedRef.current) return
 
+        setNameSweep(true)
+        setThumbSweep(true)
+
         nameControls.stop()
         thumbControls.stop()
         nameControls.set({ x: "-100%" })
         thumbControls.set({ y: "-100%" })
 
-        const D = (ANIMATION_CONFIG.sweep.duration || 0.5)
+        const D = (ANIMATION_CONFIG.sweep.duration || 0.8)
         const half = D / 2
 
         try {
@@ -389,7 +394,7 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
                               {thumbSweep && (
                                 <motion.div
                                   key={`thumb-sweep-${player.trackIndex}`}
-                                  className="absolute inset-x-0 top-0 h-full bg-white/80 z-20 pointer-events-none"
+                                  className="absolute inset-x-0 top-0 h-full bg-white/40 z-20 pointer-events-none"
                                   initial={{ y: "-100%" }}
                                   animate={thumbControls}
                                   exit={{ opacity: 0 }}
@@ -410,7 +415,7 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
                           {nameSweep && (
                             <motion.div
                               key={`sweep-${player.trackIndex}`}
-                              className="absolute inset-0 bg-white/90 z-10 pointer-events-none"
+                              className="absolute inset-0 bg-white/50 z-10 pointer-events-none"
                               initial={{ x: "-100%" }}
                               animate={nameControls}
                               exit={{ opacity: 0 }}
@@ -508,7 +513,7 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
               >
                 <Shuffle className="w-6 h-6" />
                 {shuffle && (
-                  <div className="absolute left-1 top-1/2 transform -translate-y-1/2 w-[3px] h-[3px] bg-white rounded-full"></div>
+                  <div className="absolute left-2 top-1/2 transform -translate-y-1/2 w-[4px] h-[4px] bg-white rounded-full"></div>
                 )}
               </button>
 
