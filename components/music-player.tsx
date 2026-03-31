@@ -308,18 +308,6 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
             : "0 0 40px rgba(255,255,255,.05), 0 4px 20px -5px rgba(0,0,0,.5)",
         }}
       >
-        <AnimatePresence initial={false}>
-          {isVisible && (
-            <motion.div
-              className="absolute inset-0 bg-white z-30 pointer-events-none"
-              initial={{ clipPath: "inset(0 100% 0 0)" }}
-              animate={{ clipPath: "inset(0 0 0 100%)" }}
-              transition={{ duration: (ANIMATION_CONFIG.sweep.duration || 0.5) * 4.0, ease: ANIMATION_CONFIG.sweep.ease }}
-              style={{ borderRadius: "inherit" }}
-            />
-          )}
-        </AnimatePresence>
-
         <motion.div
           className="h-[2px] bg-white/5 relative overflow-hidden"
           animate={{ opacity: expanded ? 1 : 0 }}
