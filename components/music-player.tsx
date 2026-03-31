@@ -401,7 +401,7 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
                               {thumbSweep && (
                                 <motion.div
                                   key={`thumb-sweep-${player.trackIndex}`}
-                                  className="absolute inset-x-0 top-0 h-full bg-white/40 z-20 pointer-events-none"
+                                  className="absolute inset-x-0 top-0 h-full bg-white z-20 pointer-events-none"
                                   initial={{ y: "-100%" }}
                                   animate={thumbControls}
                                   exit={{ opacity: 0 }}
@@ -422,7 +422,7 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
                           {nameSweep && (
                             <motion.div
                               key={`sweep-${player.trackIndex}`}
-                              className="absolute inset-0 bg-white/50 z-10 pointer-events-none"
+                              className="absolute inset-0 bg-white z-10 pointer-events-none"
                               initial={{ x: "-100%" }}
                               animate={nameControls}
                               exit={{ opacity: 0 }}
