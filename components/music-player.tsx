@@ -53,6 +53,7 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
       const [repeat, setRepeat] = useState(false)
       const [shuffleQueue, setShuffleQueue] = useState<number[]>([])
 
+
       const [hovered, setHovered] = useState(false)
       const [tracks, setTracks] = useState<Track[]>([])
       const [loading, setLoading] = useState(true)
@@ -499,11 +500,16 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
           <div className="mt-3 grid grid-cols-[1fr_auto_1fr] items-center gap-3">
             <div className="flex items-center justify-end gap-3">
               <button
-                onClick={() => setShuffle(s => !s)}
-                className={`w-10 h-10 flex items-center justify-center text-white ${shuffle ? 'bg-white/10' : 'bg-transparent'} hover:bg-white/10 transition-all rounded-full`}
+                onClick={() => {
+                  setShuffle(s => !s)
+                }}
+                className={`w-10 h-10 flex items-center justify-center text-white ${shuffle ? 'bg-white/10' : 'bg-transparent'} hover:bg-white/10 transition-all rounded-full relative`}
                 title="Shuffle"
               >
                 <Shuffle className="w-6 h-6" />
+                {shuffle && (
+                  <div className="absolute bottom-1 right-1 w-1.5 h-1.5 bg-white rounded-full"></div>
+                )}
               </button>
 
               <motion.button
@@ -537,7 +543,9 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
               </motion.button>
 
               <button
-                onClick={() => setRepeat(r => !r)}
+                onClick={() => {
+                  setRepeat(r => !r)
+                }}
                 className={`w-10 h-10 flex items-center justify-center text-white ${repeat ? 'bg-white/10' : 'bg-transparent'} hover:bg-white/10 transition-all rounded-full`}
                 title="Repeat"
               >
