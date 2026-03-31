@@ -12,7 +12,8 @@ html, body {
 :root {
   color-scheme: light;
   -webkit-color-scheme: light;
-  --background: #000;   --foreground: oklch(0.95 0 0);
+  --background: #ffffff;
+  --foreground: #000000;
   --card: oklch(0.08 0 0);
   --card-foreground: oklch(0.95 0 0);
   --popover: oklch(0.08 0 0);
@@ -50,6 +51,13 @@ html, body {
   html, body {
     color-scheme: light !important;
     -webkit-color-scheme: light !important;
+  }
+  :root {
+    --background: #ffffff !important;
+    --foreground: #000000 !important;
+    --card: #f5f5ffffff;
+  --foreground: #000000
+    --card-foreground: #000000 !important;
   }
 }
 
