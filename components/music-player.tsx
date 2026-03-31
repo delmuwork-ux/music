@@ -66,6 +66,7 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
       const titleControls = useAnimationControls()
       const thumbControls = useAnimationControls()
       const sweepToken = useRef(0)
+      const isAnimatingRef = useRef(false)
       const titleContainerRef = useRef<HTMLDivElement | null>(null)
       const titleTextRef = useRef<HTMLDivElement | null>(null)
       const queueRef = useRef<HTMLDivElement | null>(null)
@@ -173,12 +174,17 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
       async function runSweep(requestedIndex: number) {
         const myToken = ++sweepToken.current
         
-        if (!mountedRef.current) {
+        if (!mountedRef.current || isAnimatingRef.current) {
           return
         }
 
+        isAnimatingRef.current = true
+
         await new Promise<void>(resolve => requestAnimationFrame(() => resolve()))
-        if (myToken !== sweepToken.current || !mountedRef.current) return
+        if (myToken !== sweepToken.current || !mountedRef.current) {
+          isAnimatingRef.current = false
+          return
+        }
 
         setNameSweep(true)
         setThumbSweep(true)
@@ -211,6 +217,7 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
             setNameSweep(false)
             setThumbSweep(false)
           }
+          isAnimatingRef.current = false
         }
       }
 
@@ -508,7 +515,8 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
                 onClick={() => {
                   setShuffle(s => !s)
                 }}
-                className={`w-10 h-10 flex items-center justify-center text-white ${shuffle ? 'bg-white/10' : 'bg-transparent'} hover:bg-white/10 transition-all rounded-full relative`}
+                disabled={isAnimatingRef.current}
+                className={`w-10 h-10 flex items-center justify-center text-white ${shuffle ? 'bg-white/10' : 'bg-transparent'} hover:bg-white/10 transition-all rounded-full relative disabled:opacity-50 disabled:cursor-not-allowed`}
                 title="Shuffle"
               >
                 <Shuffle className="w-6 h-6" />
@@ -519,7 +527,8 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
 
               <motion.button
                 onClick={handlePrev}
-                className="w-10 h-10 text-white hover:text-white hover:bg-white/10 transition-all flex items-center justify-center rounded-full"
+                disabled={isAnimatingRef.current}
+                className="w-10 h-10 text-white hover:text-white hover:bg-white/10 transition-all flex items-center justify-center rounded-full disabled:opacity-50 disabled:cursor-not-allowed"
                 whileTap={{ scale: 0.9 }}
               >
                 <SkipBack className="w-5 h-5" fill="currentColor" />
@@ -541,7 +550,8 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
             <div className="flex items-center justify-start gap-3">
               <motion.button
                 onClick={handleNext}
-                className="w-10 h-10 text-white hover:text-white hover:bg-white/10 transition-all flex items-center justify-center rounded-full"
+                disabled={isAnimatingRef.current}
+                className="w-10 h-10 text-white hover:text-white hover:bg-white/10 transition-all flex items-center justify-center rounded-full disabled:opacity-50 disabled:cursor-not-allowed"
                 whileTap={{ scale: 0.9 }}
               >
                 <SkipForward className="w-5 h-5" fill="currentColor" />
