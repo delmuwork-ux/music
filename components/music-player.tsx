@@ -149,7 +149,7 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
           player.play()
         }
 
-        performAnimatedTrackSwitch(action)
+        performAnimatedTrackSwitch(action, index)
       }
 
       useEffect(() => {
@@ -221,7 +221,7 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
         }
       }
 
-      async function performAnimatedTrackSwitch(action: () => void) {
+      async function performAnimatedTrackSwitch(action: () => void, targetIndex?: number) {
         const myToken = ++sweepToken.current
         
         if (!mountedRef.current || isAnimatingRef.current) {
@@ -256,12 +256,25 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
 
           // Phase 3: Execute track change while covered
           skipNextSweepRef.current = true
+
+          // If caller provided a target index, update visual thumbnail immediately
+          if (typeof targetIndex === 'number') {
+            setDisplayedIndex(targetIndex)
+            pendingIndex.current = targetIndex
+          }
+
           action()
 
-          // Phase 4: Sweep out to reveal new track
+          // Keep sweep covering for a short moment so new thumbnail is visible underneath
+          await new Promise<void>(resolve => setTimeout(resolve, 100))
+
+          if (myToken !== sweepToken.current) return
+
+          // Phase 4: Sweep out to reveal new track (faster out)
+          const outDuration = Math.max(0.06, half * 0.5)
           await Promise.all([
-            nameControls.start({ x: "100%", transition: { duration: half, ease: ANIMATION_CONFIG.sweep.ease } }),
-            thumbControls.start({ y: "100%", transition: { duration: half, ease: ANIMATION_CONFIG.sweep.ease } }),
+            nameControls.start({ x: "100%", transition: { duration: outDuration, ease: ANIMATION_CONFIG.sweep.ease } }),
+            thumbControls.start({ y: "100%", transition: { duration: outDuration, ease: ANIMATION_CONFIG.sweep.ease } }),
           ])
           
           // Phase 5: Immediately hide the sweep elements after animation completes
@@ -278,15 +291,19 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
       // Shuffle logic: randomize next track without repeating until all tracks are played
       function handleNext() {
         let action: () => void
+        let targetIndex: number | undefined
 
         if (shuffle && tracks.length > 1) {
           const queue = shuffleQueue.length > 0 ? shuffleQueue : createShuffleQueue(player.trackIndex)
           const [nextIdx, ...rest] = queue
+          targetIndex = nextIdx
           action = () => player.setTrack(nextIdx)
           setShuffleQueue(rest)
         } else if (repeat) {
+          targetIndex = player.trackIndex
           action = () => player.setTrack(player.trackIndex)
         } else {
+          targetIndex = (player.trackIndex + 1) % tracks.length
           action = () => player.next()
         }
 
@@ -294,7 +311,7 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
           player.play()
         }
 
-        performAnimatedTrackSwitch(action)
+        performAnimatedTrackSwitch(action, targetIndex)
       }
 
       const displayed = tracks[displayedIndex] ?? player.currentTrack ?? { title: '', artist: '', duration: '', src: '' }
