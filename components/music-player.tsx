@@ -453,7 +453,7 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
               <div className="relative flex-1 min-h-0 overflow-hidden">
                 <div className="absolute inset-0 overflow-y-auto" ref={queueRef}>
                   <motion.div
-                    className="absolute left-0 right-0 flex items-center justify-between pointer-events-none z-10 px-2"
+                    className="absolute left-0 right-0 flex items-center justify-between pointer-events-none z-10 px-6"
                     animate={{ top: player.trackIndex * 48 }}
                     transition={ANIMATION_CONFIG.sweep}
                     style={{ height: 48 }}
