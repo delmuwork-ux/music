@@ -255,16 +255,22 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
           skipNextSweepRef.current = true
           action()
 
-          // Phase 4: Sweep out to reveal new track
-          await Promise.all([
+          // Phase 4: Sweep out to reveal new track - with explicit exit animation
+          const exitPromise = Promise.all([
             nameControls.start({ x: "100%", transition: { duration: half, ease: ANIMATION_CONFIG.sweep.ease } }),
             thumbControls.start({ y: "100%", transition: { duration: half, ease: ANIMATION_CONFIG.sweep.ease } }),
           ])
-        } finally {
+          
+          await exitPromise
+          
+          // Phase 5: Wait a bit then hide the sweep elements with exit animation
+          await new Promise<void>(resolve => setTimeout(resolve, 50))
+          
           if (myToken === sweepToken.current) {
             setNameSweep(false)
             setThumbSweep(false)
           }
+        } finally {
           isAnimatingRef.current = false
           setIsAnimating(false)
         }
@@ -406,6 +412,7 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
                           className="absolute inset-0 bg-white z-0 pointer-events-none"
                           initial={{ x: "-100%" }}
                           animate={nameControls}
+                          exit={{ opacity: 0, transition: { duration: 0 } }}
                         />
                       )}
                     </AnimatePresence>
@@ -443,6 +450,7 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
                                   className="absolute inset-x-0 top-0 h-full bg-white z-20 pointer-events-none"
                                   initial={{ y: "-100%" }}
                                   animate={thumbControls}
+                                  exit={{ opacity: 0, transition: { duration: 0 } }}
                                   style={{ borderRadius: 0, width: '100%' }}
                                 />
                               )}
@@ -463,6 +471,7 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
                               className="absolute inset-0 bg-white z-10 pointer-events-none"
                               initial={{ x: "-100%" }}
                               animate={nameControls}
+                              exit={{ opacity: 0, transition: { duration: 0 } }}
                               style={{ borderRadius: 0, height: '100%', width: '100%' }}
                             />
                           )}
