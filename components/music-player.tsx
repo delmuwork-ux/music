@@ -67,6 +67,7 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
       const thumbControls = useAnimationControls()
       const sweepToken = useRef(0)
       const isAnimatingRef = useRef(false)
+      const skipNextSweepRef = useRef(false)
       const titleContainerRef = useRef<HTMLDivElement | null>(null)
       const titleTextRef = useRef<HTMLDivElement | null>(null)
       const queueRef = useRef<HTMLDivElement | null>(null)
@@ -104,9 +105,10 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
       useEffect(() => {
         setDisplayedIndex(player.trackIndex)
         pendingIndex.current = player.trackIndex
-        if (!initialLoadRef.current) {
+        if (!initialLoadRef.current && !skipNextSweepRef.current) {
           runSweep(player.trackIndex)
         }
+        skipNextSweepRef.current = false
         initialLoadRef.current = false
       }, [player.trackIndex])
 
@@ -194,7 +196,7 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
         nameControls.set({ x: "-100%" })
         thumbControls.set({ y: "-100%" })
 
-        const D = (ANIMATION_CONFIG.sweep.duration || 0.8)
+        const D = ANIMATION_CONFIG.sweep.duration
         const half = D / 2
 
         try {
@@ -221,24 +223,82 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
         }
       }
 
+      async function performAnimatedTrackSwitch(action: () => void) {
+        const myToken = ++sweepToken.current
+        
+        if (!mountedRef.current || isAnimatingRef.current) {
+          return
+        }
+
+        isAnimatingRef.current = true
+
+        await new Promise<void>(resolve => requestAnimationFrame(() => resolve()))
+        if (myToken !== sweepToken.current || !mountedRef.current) {
+          isAnimatingRef.current = false
+          return
+        }
+
+        setNameSweep(true)
+        setThumbSweep(true)
+
+        nameControls.stop()
+        thumbControls.stop()
+        nameControls.set({ x: "-100%" })
+        thumbControls.set({ y: "-100%" })
+
+        const D = ANIMATION_CONFIG.sweep.duration
+        const half = D / 2
+
+        try {
+          // Phase 1: Sweep in to cover
+          await Promise.all([
+            nameControls.start({ x: "0%", transition: { duration: half, ease: ANIMATION_CONFIG.sweep.ease } }),
+            thumbControls.start({ y: "0%", transition: { duration: half, ease: ANIMATION_CONFIG.sweep.ease } }),
+          ])
+          
+          // Phase 2: Confirm coverage
+          await new Promise<void>(resolve => setTimeout(resolve, 150))
+
+          if (myToken !== sweepToken.current) return
+
+          // Phase 3: Execute track change while covered
+          skipNextSweepRef.current = true
+          action()
+
+          // Phase 4: Sweep out to reveal new track
+          await Promise.all([
+            nameControls.start({ x: "100%", transition: { duration: half, ease: ANIMATION_CONFIG.sweep.ease } }),
+            thumbControls.start({ y: "100%", transition: { duration: half, ease: ANIMATION_CONFIG.sweep.ease } }),
+          ])
+        } finally {
+          if (myToken === sweepToken.current) {
+            setNameSweep(false)
+            setThumbSweep(false)
+          }
+          isAnimatingRef.current = false
+        }
+      }
+
       // Shuffle logic: randomize next track without repeating until all tracks are played
       function handleNext() {
+        let action: () => void
+
         if (shuffle && tracks.length > 1) {
-          setShuffleQueue(prev => {
-            const queue = prev.length > 0 ? prev : createShuffleQueue(player.trackIndex)
-            const [nextIdx, ...rest] = queue
-            player.setTrack(nextIdx)
-            return rest
-          })
+          const queue = shuffleQueue.length > 0 ? shuffleQueue : createShuffleQueue(player.trackIndex)
+          const [nextIdx, ...rest] = queue
+          action = () => player.setTrack(nextIdx)
+          setShuffleQueue(rest)
         } else if (repeat) {
-          player.setTrack(player.trackIndex)
+          action = () => player.setTrack(player.trackIndex)
         } else {
-          player.next()
+          action = () => player.next()
         }
 
         if (!player.playing) {
           player.play()
         }
+
+        performAnimatedTrackSwitch(action)
       }
 
       const displayed = tracks[displayedIndex] ?? player.currentTrack ?? { title: '', artist: '', duration: '', src: '' }
@@ -385,14 +445,13 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
                               alt={`${displayed.title} artwork`}
                               className="h-full w-full object-cover object-center"
                             />
-                            <AnimatePresence>
+                            <AnimatePresence mode="wait">
                               {thumbSweep && (
                                 <motion.div
                                   key={`thumb-sweep-${player.trackIndex}`}
                                   className="absolute inset-x-0 top-0 h-full bg-white z-20 pointer-events-none"
                                   initial={{ y: "-100%" }}
                                   animate={thumbControls}
-                                  exit={{ opacity: 0 }}
                                   style={{ borderRadius: 0, width: '100%' }}
                                 />
                               )}
@@ -406,14 +465,13 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
                       </div>
 
                       <div className="relative inline-block w-full max-w-full text-center">
-                        <AnimatePresence>
+                        <AnimatePresence mode="wait">
                           {nameSweep && (
                             <motion.div
                               key={`sweep-${player.trackIndex}`}
                               className="absolute inset-0 bg-white z-10 pointer-events-none"
                               initial={{ x: "-100%" }}
                               animate={nameControls}
-                              exit={{ opacity: 0 }}
                               style={{ borderRadius: 0, height: '100%', width: '100%' }}
                             />
                           )}
