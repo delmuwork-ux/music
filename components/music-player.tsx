@@ -182,24 +182,18 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
 
         isAnimatingRef.current = true
 
-        await new Promise<void>(resolve => requestAnimationFrame(() => resolve()))
-        if (myToken !== sweepToken.current || !mountedRef.current) {
-          isAnimatingRef.current = false
-          return
-        }
-
-        setNameSweep(true)
-        setThumbSweep(true)
-
-        nameControls.stop()
-        thumbControls.stop()
-        nameControls.set({ x: "-100%" })
-        thumbControls.set({ y: "-100%" })
-
-        const D = ANIMATION_CONFIG.sweep.duration
-        const half = D / 2
-
         try {
+          setNameSweep(true)
+          setThumbSweep(true)
+
+          await new Promise<void>(resolve => requestAnimationFrame(() => resolve()))
+          if (myToken !== sweepToken.current || !mountedRef.current) {
+            return
+          }
+
+          const D = ANIMATION_CONFIG.sweep.duration
+          const half = D / 2
+
           await Promise.all([
             nameControls.start({ x: "0%", transition: { duration: half, ease: ANIMATION_CONFIG.sweep.ease } }),
             thumbControls.start({ y: "0%", transition: { duration: half, ease: ANIMATION_CONFIG.sweep.ease } }),
@@ -232,24 +226,18 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
 
         isAnimatingRef.current = true
 
-        await new Promise<void>(resolve => requestAnimationFrame(() => resolve()))
-        if (myToken !== sweepToken.current || !mountedRef.current) {
-          isAnimatingRef.current = false
-          return
-        }
-
-        setNameSweep(true)
-        setThumbSweep(true)
-
-        nameControls.stop()
-        thumbControls.stop()
-        nameControls.set({ x: "-100%" })
-        thumbControls.set({ y: "-100%" })
-
-        const D = ANIMATION_CONFIG.sweep.duration
-        const half = D / 2
-
         try {
+          setNameSweep(true)
+          setThumbSweep(true)
+
+          await new Promise<void>(resolve => requestAnimationFrame(() => resolve()))
+          if (myToken !== sweepToken.current || !mountedRef.current) {
+            return
+          }
+
+          const D = ANIMATION_CONFIG.sweep.duration
+          const half = D / 2
+
           // Phase 1: Sweep in to cover
           await Promise.all([
             nameControls.start({ x: "0%", transition: { duration: half, ease: ANIMATION_CONFIG.sweep.ease } }),
