@@ -52,6 +52,10 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
       const [shuffle, setShuffle] = useState(false)
       const [repeat, setRepeat] = useState(false)
       const [shuffleQueue, setShuffleQueue] = useState<number[]>([])
+      const [shuffleSweep, setShuffleSweep] = useState(false)
+      const [repeatSweep, setRepeatSweep] = useState(false)
+      const shuffleControls = useAnimationControls()
+      const repeatControls = useAnimationControls()
 
 
       const [hovered, setHovered] = useState(false)
@@ -643,16 +647,46 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
           <div className="mt-3 grid grid-cols-[1fr_auto_1fr] items-center gap-3">
             <div className="flex items-center justify-end gap-3">
               <button
-                onClick={() => {
-                  setShuffle(s => !s)
+                onClick={async () => {
+                  const newShuffleState = !shuffle
+                  setShuffle(newShuffleState)
+                  
+                  // Animate sweep based on shuffle state
+                  setShuffleSweep(true)
+                  
+                  if (newShuffleState) {
+                    // Sweep in from left to right
+                    await shuffleControls.start({
+                      x: ["0%", "100%"],
+                      transition: { duration: 0.4, ease: ANIMATION_CONFIG.sweep.ease }
+                    })
+                  } else {
+                    // Sweep out from right to left
+                    await shuffleControls.start({
+                      x: ["100%", "0%"],
+                      transition: { duration: 0.4, ease: ANIMATION_CONFIG.sweep.ease }
+                    })
+                  }
+                  
+                  setShuffleSweep(false)
                 }}
                 disabled={isAnimating}
                 className="w-10 h-10 flex items-center justify-center !bg-white !text-slate-950 transition-all rounded-none relative disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-100"
                 title="Shuffle"
               >
-                <Shuffle className="w-6 h-6" />
+                <AnimatePresence mode="wait">
+                  {shuffleSweep && (
+                    <motion.div
+                      className="absolute inset-0 bg-white z-0 pointer-events-none rounded-none"
+                      initial={{ x: "-100%" }}
+                      animate={shuffleControls}
+                      exit={{ opacity: 0, transition: { duration: 0 } }}
+                    />
+                  )}
+                </AnimatePresence>
+                <Shuffle className="w-6 h-6 relative z-10" />
                 {shuffle && (
-                  <div className="absolute left-2 top-1/2 transform -translate-y-1/2 w-[3px] h-[3px] bg-blue-500 rounded-full"></div>
+                  <div className="absolute left-2 top-1/2 transform -translate-y-1/2 w-[3px] h-[3px] bg-blue-500 rounded-full z-20"></div>
                 )}
               </button>
 
@@ -689,15 +723,45 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
               </motion.button>
 
               <button
-                onClick={() => {
-                  setRepeat(r => !r)
+                onClick={async () => {
+                  const newRepeatState = !repeat
+                  setRepeat(newRepeatState)
+                  
+                  // Animate sweep based on repeat state
+                  setRepeatSweep(true)
+                  
+                  if (newRepeatState) {
+                    // Sweep in from left to right
+                    await repeatControls.start({
+                      x: ["0%", "100%"],
+                      transition: { duration: 0.4, ease: ANIMATION_CONFIG.sweep.ease }
+                    })
+                  } else {
+                    // Sweep out from right to left
+                    await repeatControls.start({
+                      x: ["100%", "0%"],
+                      transition: { duration: 0.4, ease: ANIMATION_CONFIG.sweep.ease }
+                    })
+                  }
+                  
+                  setRepeatSweep(false)
                 }}
-                className="w-10 h-10 flex items-center justify-center !bg-white !text-slate-950 transition-all rounded-none hover:bg-slate-100"
+                className="w-10 h-10 flex items-center justify-center !bg-white !text-slate-950 transition-all rounded-none relative hover:bg-slate-100"
                 title="Repeat"
               >
-                <Repeat className="w-6 h-6" />
+                <AnimatePresence mode="wait">
+                  {repeatSweep && (
+                    <motion.div
+                      className="absolute inset-0 bg-white z-0 pointer-events-none rounded-none"
+                      initial={{ x: "-100%" }}
+                      animate={repeatControls}
+                      exit={{ opacity: 0, transition: { duration: 0 } }}
+                    />
+                  )}
+                </AnimatePresence>
+                <Repeat className="w-6 h-6 relative z-10" />
                 {repeat && (
-                  <div className="absolute right-2 top-1/2 transform -translate-y-1/2 w-[3px] h-[3px] bg-blue-500 rounded-full"></div>
+                  <div className="absolute right-2 top-1/2 transform -translate-y-1/2 w-[3px] h-[3px] bg-blue-500 rounded-full z-20"></div>
                 )}
               </button>
             </div>
