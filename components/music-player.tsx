@@ -627,11 +627,7 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
                           )}
                         </span>
 
-                        <span className={`text-[10px] font-mono transition-colors ${
-                          player.trackIndex === i ? "text-white" : "text-white/30"
-                        }`}>
-                          {track.duration}
-                        </span>
+                        <AudioBars playing={player.playing && player.trackIndex === i} />
                       </button>
                     ))}
                   </div>
