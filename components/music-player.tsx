@@ -648,25 +648,19 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
             <div className="flex items-center justify-end gap-3">
               <button
                 onClick={async () => {
-                  const newShuffleState = !shuffle
-                  setShuffle(newShuffleState)
-                  
-                  // Animate sweep based on shuffle state
                   setShuffleSweep(true)
                   
-                  if (newShuffleState) {
-                    // Sweep in from left to right
-                    await shuffleControls.start({
-                      x: ["0%", "100%"],
-                      transition: { duration: 0.4, ease: ANIMATION_CONFIG.sweep.ease }
-                    })
-                  } else {
-                    // Sweep out from right to left
-                    await shuffleControls.start({
-                      x: ["100%", "0%"],
-                      transition: { duration: 0.4, ease: ANIMATION_CONFIG.sweep.ease }
-                    })
-                  }
+                  const D = ANIMATION_CONFIG.sweep.duration
+                  const half = D / 2
+                  
+                  // Phase 1: Sweep in from left to right
+                  await shuffleControls.start({ x: "0%", transition: { duration: half, ease: ANIMATION_CONFIG.sweep.ease } })
+                  
+                  // Update state
+                  setShuffle(!shuffle)
+                  
+                  // Phase 2: Sweep out from right to left
+                  await shuffleControls.start({ x: "100%", transition: { duration: half, ease: ANIMATION_CONFIG.sweep.ease } })
                   
                   setShuffleSweep(false)
                 }}
@@ -726,25 +720,19 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
 
               <button
                 onClick={async () => {
-                  const newRepeatState = !repeat
-                  setRepeat(newRepeatState)
-                  
-                  // Animate sweep based on repeat state
                   setRepeatSweep(true)
                   
-                  if (newRepeatState) {
-                    // Sweep in from left to right
-                    await repeatControls.start({
-                      x: ["0%", "100%"],
-                      transition: { duration: 0.4, ease: ANIMATION_CONFIG.sweep.ease }
-                    })
-                  } else {
-                    // Sweep out from right to left
-                    await repeatControls.start({
-                      x: ["100%", "0%"],
-                      transition: { duration: 0.4, ease: ANIMATION_CONFIG.sweep.ease }
-                    })
-                  }
+                  const D = ANIMATION_CONFIG.sweep.duration
+                  const half = D / 2
+                  
+                  // Phase 1: Sweep in from left to right
+                  await repeatControls.start({ x: "0%", transition: { duration: half, ease: ANIMATION_CONFIG.sweep.ease } })
+                  
+                  // Update state
+                  setRepeat(!repeat)
+                  
+                  // Phase 2: Sweep out from right to left
+                  await repeatControls.start({ x: "100%", transition: { duration: half, ease: ANIMATION_CONFIG.sweep.ease } })
                   
                   setRepeatSweep(false)
                 }}
