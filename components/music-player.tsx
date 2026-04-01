@@ -647,7 +647,7 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
                   setShuffle(s => !s)
                 }}
                 disabled={isAnimating}
-                className={`w-10 h-10 flex items-center justify-center text-white ${shuffle ? 'bg-white/10' : 'bg-transparent'} hover:bg-white/10 transition-all rounded-full relative disabled:opacity-50 disabled:cursor-not-allowed`}
+                className="w-10 h-10 flex items-center justify-center text-white bg-transparent hover:bg-white/10 transition-all rounded-full relative disabled:opacity-50 disabled:cursor-not-allowed"
                 title="Shuffle"
               >
                 <Shuffle className="w-6 h-6" />
@@ -692,7 +692,7 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
                 onClick={() => {
                   setRepeat(r => !r)
                 }}
-                className={`w-10 h-10 flex items-center justify-center text-white ${repeat ? 'bg-white/10' : 'bg-transparent'} hover:bg-white/10 transition-all rounded-full`}
+                className="w-10 h-10 flex items-center justify-center text-white bg-transparent hover:bg-white/10 transition-all rounded-full"
                 title="Repeat"
               >
                 <Repeat className="w-6 h-6" />
