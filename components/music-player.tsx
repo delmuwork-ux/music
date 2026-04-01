@@ -533,8 +533,8 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
                     transition={ANIMATION_CONFIG.sweep}
                     style={{ height: 48 }}
                   >
-                    <div className="w-6" />
-                    <div className="flex-1 flex items-center justify-between px-4">
+                    <div className="w-0" />
+                    <div className="flex-1 flex items-center justify-between px-8">
                       <span className="text-white text-sm font-mono animate-pulse leading-tight">&gt;</span>
                       <span className="text-white text-sm font-mono animate-pulse leading-tight">&lt;</span>
                     </div>
