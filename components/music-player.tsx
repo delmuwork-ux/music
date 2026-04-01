@@ -250,7 +250,7 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
           ])
           
           // Phase 2: Confirm coverage
-          await new Promise<void>(resolve => setTimeout(resolve, 150))
+          await new Promise<void>(resolve => setTimeout(resolve, 100))
 
           if (myToken !== sweepToken.current) return
 
@@ -266,12 +266,12 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
           action()
 
           // Keep sweep covering for a short moment so new thumbnail is visible underneath
-          await new Promise<void>(resolve => setTimeout(resolve, 100))
+          await new Promise<void>(resolve => setTimeout(resolve, 50))
 
           if (myToken !== sweepToken.current) return
 
           // Phase 4: Sweep out to reveal new track (faster out)
-          const outDuration = Math.max(0.06, half * 0.5)
+          const outDuration = Math.max(0.06, half * 0.6)
           await Promise.all([
             nameControls.start({ x: "100%", transition: { duration: outDuration, ease: ANIMATION_CONFIG.sweep.ease } }),
             thumbControls.start({ y: "100%", transition: { duration: outDuration, ease: ANIMATION_CONFIG.sweep.ease } }),
@@ -419,7 +419,7 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
                     <Play className="w-3 h-3" fill="currentColor" />
                   )}
                 </motion.button>
-
+                // Tên bài hát chạy marquee nếu quá dài, với hiệu ứng sp khi đổi bài
                 <div className="min-w-0 flex-1 relative">
                   <div className="relative inline-block">
                     <AnimatePresence>
