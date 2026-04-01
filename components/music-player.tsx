@@ -581,6 +581,7 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
 
               <div className="relative flex-1 min-h-0 overflow-hidden">
                 <div className="absolute inset-0 overflow-y-auto" ref={queueRef}>
+                  {/* Indicator arrows that move with current track */}
                   <motion.div
                     className="absolute left-0 right-0 flex items-center gap-3 px-6 h-full pointer-events-none z-10"
                     animate={{ top: player.trackIndex * 48 + 4 }}
@@ -588,13 +589,7 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
                     style={{ height: 48 }}
                   >
                     <span className="text-white text-sm font-mono animate-pulse leading-tight">&gt;</span>
-                    <span className="text-[10px] font-mono text-white/30 w-4">
-                      {String(player.trackIndex + 1).padStart(2, "0")}
-                    </span>
-                    <span className="flex-1 text-sm text-center text-white/50 truncate">
-                      {tracks[player.trackIndex]?.title}
-                    </span>
-                    <span className="text-[10px] font-mono text-white/30">{tracks[player.trackIndex]?.duration}</span>
+                    <span className="flex-1" />
                     <span className="text-white text-sm font-mono animate-pulse leading-tight">&lt;</span>
                   </motion.div>
 
@@ -604,32 +599,32 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
                         key={`${track.title}-${i}`}
                         onClick={() => handleTrackSelect(i)}
                         className={`w-full flex items-center gap-3 px-6 text-left transition-all duration-300 ${
-                          player.trackIndex === i ? "bg-white/5" : "hover:bg-white/5"
+                          player.trackIndex === i ? "bg-white/10" : "hover:bg-white/5"
                         }`}
                         style={{ height: 48 }}
                       >
-                        {player.trackIndex === i ? (
-                          <div className="w-full" />
-                        ) : (
-                          <>
-                            <span className="text-[10px] font-mono text-white/30 w-4">
-                              {String(i + 1).padStart(2, "0")}
-                            </span>
+                        <span className={`text-[10px] font-mono transition-colors ${
+                          player.trackIndex === i ? "text-white" : "text-white/30"
+                        }`}>
+                          {String(i + 1).padStart(2, "0")}
+                        </span>
 
-                            <span
-                              className={`text-sm flex-1 truncate text-center transition-colors ${
-                                player.trackIndex === i ? "text-white" : "text-white/50"
-                              }`}
-                            >
-                              {track.title}
-                              {player.loadErrors && player.loadErrors[i] && (
-                                <span className="ml-2 text-[10px] text-rose-400">(file missing)</span>
-                              )}
-                            </span>
+                        <span
+                          className={`text-sm flex-1 truncate text-center transition-colors ${
+                            player.trackIndex === i ? "text-white font-medium" : "text-white/50"
+                          }`}
+                        >
+                          {track.title}
+                          {player.loadErrors && player.loadErrors[i] && (
+                            <span className="ml-2 text-[10px] text-rose-400">(file missing)</span>
+                          )}
+                        </span>
 
-                            <span className="text-[10px] font-mono text-white/30">{track.duration}</span>
-                          </>
-                        )}
+                        <span className={`text-[10px] font-mono transition-colors ${
+                          player.trackIndex === i ? "text-white" : "text-white/30"
+                        }`}>
+                          {track.duration}
+                        </span>
                       </button>
                     ))}
                   </div>
