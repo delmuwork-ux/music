@@ -608,22 +608,28 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
                         }`}
                         style={{ height: 48 }}
                       >
-                        <span className="text-[10px] font-mono text-white/30 w-4">
-                          {String(i + 1).padStart(2, "0")}
-                        </span>
+                        {player.trackIndex === i ? (
+                          <div className="w-full" />
+                        ) : (
+                          <>
+                            <span className="text-[10px] font-mono text-white/30 w-4">
+                              {String(i + 1).padStart(2, "0")}
+                            </span>
 
-                        <span
-                          className={`text-sm flex-1 truncate text-center transition-colors ${
-                            player.trackIndex === i ? "text-white" : "text-white/50"
-                          }`}
-                        >
-                          {track.title}
-                          {player.loadErrors && player.loadErrors[i] && (
-                            <span className="ml-2 text-[10px] text-rose-400">(file missing)</span>
-                          )}
-                        </span>
+                            <span
+                              className={`text-sm flex-1 truncate text-center transition-colors ${
+                                player.trackIndex === i ? "text-white" : "text-white/50"
+                              }`}
+                            >
+                              {track.title}
+                              {player.loadErrors && player.loadErrors[i] && (
+                                <span className="ml-2 text-[10px] text-rose-400">(file missing)</span>
+                              )}
+                            </span>
 
-                        <span className="text-[10px] font-mono text-white/30">{track.duration}</span>
+                            <span className="text-[10px] font-mono text-white/30">{track.duration}</span>
+                          </>
+                        )}
                       </button>
                     ))}
                   </div>
