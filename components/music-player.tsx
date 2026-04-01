@@ -528,13 +528,13 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
               <div className="relative flex-1 min-h-0 overflow-hidden">
                 <div className="absolute inset-0 overflow-y-auto" ref={queueRef}>
                   <motion.div
-                    className="absolute left-0 right-0 flex items-center justify-between pointer-events-none z-10 px-6"
+                    className="absolute left-0 right-0 flex items-center justify-between pointer-events-none z-10 px-6 h-full"
                     animate={{ top: player.trackIndex * 48 }}
                     transition={ANIMATION_CONFIG.sweep}
                     style={{ height: 48 }}
                   >
-                    <span className="text-white text-sm font-mono animate-pulse">&gt;</span>
-                    <span className="text-white text-sm font-mono animate-pulse">&lt;</span>
+                    <span className="text-white text-sm font-mono animate-pulse leading-none">&gt;</span>
+                    <span className="text-white text-sm font-mono animate-pulse leading-none">&lt;</span>
                   </motion.div>
 
                   <div className="flex flex-col pt-1 pb-6">
