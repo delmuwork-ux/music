@@ -587,12 +587,15 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
                     transition={ANIMATION_CONFIG.sweep}
                     style={{ height: 48 }}
                   >
-                    <div className="w-0" />
-                    <div className="flex-1 flex items-center justify-between px-1">
-                      <span className="text-white text-sm font-mono animate-pulse leading-tight">&gt;</span>
-                      <span className="text-white text-sm font-mono animate-pulse leading-tight">&lt;</span>
-                    </div>
-                    <div className="invisible text-[10px]">00</div>
+                    <span className="text-white text-sm font-mono animate-pulse leading-tight">&gt;</span>
+                    <span className="text-[10px] font-mono text-white/30 w-4">
+                      {String(player.trackIndex + 1).padStart(2, "0")}
+                    </span>
+                    <span className="flex-1 text-sm text-center text-white/50 truncate">
+                      {tracks[player.trackIndex]?.title}
+                    </span>
+                    <span className="text-[10px] font-mono text-white/30">{tracks[player.trackIndex]?.duration}</span>
+                    <span className="text-white text-sm font-mono animate-pulse leading-tight">&lt;</span>
                   </motion.div>
 
                   <div className="flex flex-col pt-1 pb-6">
