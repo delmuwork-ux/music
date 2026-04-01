@@ -173,8 +173,15 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
       useEffect(() => {
         const el = queueRef.current
         if (!el) return
-        const top = player.trackIndex * 48
-        el.scrollTo({ top, behavior: "smooth" })
+        
+        const itemHeight = 48
+        const trackTop = player.trackIndex * itemHeight
+        const containerHeight = el.clientHeight
+        
+        // Center the track in the middle of the container
+        const centeredScroll = trackTop - (containerHeight / 2) + (itemHeight / 2)
+        
+        el.scrollTo({ top: Math.max(0, centeredScroll), behavior: "smooth" })
       }, [player.trackIndex])
 
       async function runSweep(requestedIndex: number) {
@@ -588,9 +595,9 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
                     transition={ANIMATION_CONFIG.sweep}
                     style={{ height: 48 }}
                   >
-                    <span className="text-white text-sm font-mono animate-pulse leading-tight -ml-3">&gt;</span>
+                    <span className="text-white text-sm font-mono animate-pulse leading-none">&gt;</span>
                     <span className="flex-1" />
-                    <span className="text-white text-sm font-mono animate-pulse leading-tight -mr-3">&lt;</span>
+                    <span className="text-white text-sm font-mono animate-pulse leading-none">&lt;</span>
                   </motion.div>
 
                   <div className="flex flex-col pt-1 pb-6">
