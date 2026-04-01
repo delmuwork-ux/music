@@ -221,6 +221,51 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
         }
       }
 
+      // Wait for audio file to be ready
+      async function waitForAudioReady(trackIdx: number, maxWait = 5000) {
+        const startTime = Date.now()
+        const audio = player.audioRef?.current
+        
+        // Check if track has load error
+        if (player.loadErrors?.[trackIdx]) {
+          return false
+        }
+        
+        // Poll for audio ready state
+        while (Date.now() - startTime < maxWait) {
+          if (audio && audio.readyState >= 2) { // HAVE_CURRENT_DATA or better
+            return true
+          }
+          await new Promise<void>(resolve => setTimeout(resolve, 50))
+        }
+        
+        return false
+      }
+
+      // Wait for thumbnail image to load
+      async function waitForThumbnailLoad(thumbnailSrc: string | undefined, maxWait = 5000) {
+        if (!thumbnailSrc) return true // No thumbnail needed
+        
+        return new Promise<boolean>(resolve => {
+          const img = new Image()
+          const timeout = setTimeout(() => {
+            resolve(false)
+          }, maxWait)
+          
+          img.onload = () => {
+            clearTimeout(timeout)
+            resolve(true)
+          }
+          
+          img.onerror = () => {
+            clearTimeout(timeout)
+            resolve(false)
+          }
+          
+          img.src = thumbnailSrc
+        })
+      }
+
       async function performAnimatedTrackSwitch(action: () => void, targetIndex?: number) {
         const myToken = ++sweepToken.current
         
@@ -265,8 +310,15 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
 
           action()
 
-          // Keep sweep covering for a short moment so new thumbnail is visible underneath
-          await new Promise<void>(resolve => setTimeout(resolve, 50))
+          // Phase 3.5: Wait for audio and thumbnail to load
+          const targetTrack = tracks[targetIndex ?? player.trackIndex]
+          const [audioReady, thumbReady] = await Promise.all([
+            waitForAudioReady(targetIndex ?? player.trackIndex),
+            waitForThumbnailLoad(targetTrack?.thumbnail),
+          ])
+
+          // Keep sweep covering for additional 0.2s after load verification
+          await new Promise<void>(resolve => setTimeout(resolve, 200))
 
           if (myToken !== sweepToken.current) return
 

@@ -127,5 +127,6 @@ export function useAudioPlayer({ tracks, autoPlay = false }: UseAudioPlayerOptio
     prev,
     // load error state
     loadErrors,
+    audioRef,
   }
 }
