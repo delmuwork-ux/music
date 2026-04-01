@@ -320,6 +320,7 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
         const container = titleContainerRef.current
         const text = titleTextRef.current
         if (!container || !text) {
+          titleControls.stop()
           titleControls.set({ x: 0 })
           return
         }
@@ -327,6 +328,7 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
         const containerWidth = container.offsetWidth
         const textWidth = text.scrollWidth
         if (textWidth <= containerWidth) {
+          titleControls.stop()
           titleControls.set({ x: 0 })
           return
         }
@@ -534,7 +536,7 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
                     style={{ height: 48 }}
                   >
                     <div className="w-0" />
-                    <div className="flex-1 flex items-center justify-between px-8">
+                    <div className="flex-1 flex items-center justify-between px-1">
                       <span className="text-white text-sm font-mono animate-pulse leading-tight">&gt;</span>
                       <span className="text-white text-sm font-mono animate-pulse leading-tight">&lt;</span>
                     </div>
