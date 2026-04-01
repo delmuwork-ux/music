@@ -136,10 +136,14 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
       }, [player.trackIndex, shuffle, tracks])
 
       function handlePrev() {
-        player.prev()
+        const targetIndex = (player.trackIndex - 1 + tracks.length) % tracks.length
+        const action = () => player.prev()
+
         if (!player.playing) {
           player.play()
         }
+
+        performAnimatedTrackSwitch(action, targetIndex)
       }
 
       function handleTrackSelect(index: number) {
