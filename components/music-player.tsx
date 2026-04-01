@@ -583,14 +583,14 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
                 <div className="absolute inset-0 overflow-y-auto" ref={queueRef}>
                   {/* Indicator arrows that move with current track */}
                   <motion.div
-                    className="absolute left-0 right-0 flex items-center gap-3 px-6 h-full pointer-events-none z-10"
+                    className="absolute left-0 right-0 flex items-center px-2 h-full pointer-events-none z-10"
                     animate={{ top: player.trackIndex * 48 + 4 }}
                     transition={ANIMATION_CONFIG.sweep}
                     style={{ height: 48 }}
                   >
-                    <span className="text-white text-sm font-mono animate-pulse leading-tight">&gt;</span>
+                    <span className="text-white text-sm font-mono animate-pulse leading-tight -ml-3">&gt;</span>
                     <span className="flex-1" />
-                    <span className="text-white text-sm font-mono animate-pulse leading-tight">&lt;</span>
+                    <span className="text-white text-sm font-mono animate-pulse leading-tight -mr-3">&lt;</span>
                   </motion.div>
 
                   <div className="flex flex-col pt-1 pb-6">
