@@ -671,7 +671,9 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
                   setShuffleSweep(false)
                 }}
                 disabled={isAnimating}
-                className="w-10 h-10 flex items-center justify-center !bg-white !text-slate-950 transition-all rounded-none relative disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-100"
+                className={`w-10 h-10 flex items-center justify-center transition-all rounded-none relative disabled:opacity-50 disabled:cursor-not-allowed ${
+                  shuffle ? '!bg-white !text-slate-950 hover:bg-slate-100' : '!text-white'
+                }`}
                 title="Shuffle"
               >
                 <AnimatePresence mode="wait">
@@ -746,7 +748,9 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
                   
                   setRepeatSweep(false)
                 }}
-                className="w-10 h-10 flex items-center justify-center !bg-white !text-slate-950 transition-all rounded-none relative hover:bg-slate-100"
+                className={`w-10 h-10 flex items-center justify-center transition-all rounded-none relative ${
+                  repeat ? '!bg-white !text-slate-950 hover:bg-slate-100' : '!text-white'
+                }`}
                 title="Repeat"
               >
                 <AnimatePresence mode="wait">
