@@ -179,7 +179,7 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
         const containerHeight = el.clientHeight
         
         // Center the track in the middle of the container
-        const centeredScroll = trackTop - (containerHeight / 2) + (itemHeight / 2)
+        const centeredScroll = trackTop - (containerHeight / 2 - itemHeight / 2)
         
         el.scrollTo({ top: Math.max(0, centeredScroll), behavior: "smooth" })
       }, [player.trackIndex])
@@ -587,7 +587,7 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
               </div>
 
               <div className="relative flex-1 min-h-0 overflow-hidden">
-                <div className="absolute inset-0 overflow-y-auto" ref={queueRef}>
+                <div className="absolute inset-0 overflow-y-auto hide-scrollbar" ref={queueRef}>
                   {/* Indicator arrows that move with current track */}
                   <motion.div
                     className="absolute left-0 right-0 flex items-center px-2 h-full pointer-events-none z-10"
