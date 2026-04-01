@@ -488,7 +488,7 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
                     <Play className="w-3 h-3" fill="currentColor" />
                   )}
                 </motion.button>
-                // Tên bài hát chạy marquee nếu quá dài, với hiệu ứng sp khi đổi bài
+                {/* Tên bài hát chạy marquee nếu quá dài, với hiệu ứng sp khi đổi bài */}
                 <div className="min-w-0 flex-1 relative">
                   <div className="relative inline-block">
                     <AnimatePresence>
