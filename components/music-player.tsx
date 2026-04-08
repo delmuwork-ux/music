@@ -607,16 +607,29 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
         const syncVideoToAudio = (force = false) => {
           if (!videoRef.current) return
           const now = Date.now()
-          const drift = Math.abs(video.currentTime - audio.currentTime)
+          const delta = audio.currentTime - video.currentTime
+          const drift = Math.abs(delta)
           const isMobile = isMobileRef.current
-          const syncIntervalMs = isMobile ? 280 : 120
-          const driftThreshold = isMobile ? 0.45 : 0.2
+          const syncIntervalMs = isMobile ? 320 : 140
+          const hardSeekThreshold = isMobile ? 1.1 : 0.6
+          const softCorrectThreshold = isMobile ? 0.08 : 0.04
 
           if (!force && now - lastVideoHardSyncMsRef.current < syncIntervalMs) return
 
-          if (force || drift > driftThreshold) {
+          // Hard seek only when drift is very large (or forced).
+          if (force || drift > hardSeekThreshold) {
             video.currentTime = audio.currentTime
             lastVideoHardSyncMsRef.current = now
+            video.playbackRate = audio.playbackRate
+            return
+          }
+
+          // Soft correction for small drift avoids stutter on heavy videos.
+          if (drift > softCorrectThreshold) {
+            const correction = Math.max(-0.05, Math.min(0.05, delta * 0.08))
+            video.playbackRate = audio.playbackRate + correction
+          } else if (video.playbackRate !== audio.playbackRate) {
+            video.playbackRate = audio.playbackRate
           }
         }
 
