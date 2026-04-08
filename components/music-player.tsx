@@ -104,8 +104,9 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
       const holdCompletedRef = useRef(false)
       const swipeDirectionRef = useRef<"down" | "up" | null>(null)
       const animationWatchdogRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-      const isMobileRef = useRef(false)
-      const lastVideoHardSyncMsRef = useRef(0)
+      const syncCycleRef = useRef(0)
+      const lastSyncedCycleRef = useRef<number | null>(null)
+      const lastProgressRef = useRef(0)
       const videoAbortRef = useRef<AbortController | null>(null)
       const videoObjectUrlCacheRef = useRef<Map<string, string>>(new Map())
       const createdObjectUrlsRef = useRef<Set<string>>(new Set())
@@ -596,6 +597,9 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
         setActiveVideoUrl(null)
         setIsVideoLoading(false)
         setVideoLoadProgress(0)
+        syncCycleRef.current += 1
+        lastSyncedCycleRef.current = null
+        lastProgressRef.current = 0
         if (videoAbortRef.current) {
           videoAbortRef.current.abort()
           videoAbortRef.current = null
@@ -605,6 +609,19 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
       useEffect(() => {
         setVideoReady(false)
       }, [displayed.video])
+
+      useEffect(() => {
+        const current = player.progress
+        const previous = lastProgressRef.current
+
+        // Detect replay/restart of current track (progress jumps backward strongly).
+        if (previous > 60 && current < 5) {
+          syncCycleRef.current += 1
+          lastSyncedCycleRef.current = null
+        }
+
+        lastProgressRef.current = current
+      }, [player.progress])
 
       useEffect(() => {
         if (!showVideo || !canUseDisplayedVideo || !displayed.video) return
@@ -651,12 +668,6 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
           })
           createdObjectUrlsRef.current.clear()
           videoObjectUrlCacheRef.current.clear()
-        }
-      }, [])
-
-      useEffect(() => {
-        if (typeof navigator !== "undefined") {
-          isMobileRef.current = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent)
         }
       }, [])
 
@@ -731,77 +742,25 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
       }
 
       useEffect(() => {
-        if (!showVideo) return
+        if (!showVideo || !activeVideoUrl || !videoReady) return
 
         const audio = player.audioRef?.current
         const video = videoRef.current
         if (!audio || !video) return
 
-        const syncVideoToAudio = (force = false) => {
-          if (!videoRef.current) return
-          const now = Date.now()
-          const delta = audio.currentTime - video.currentTime
-          const drift = Math.abs(delta)
-          const isMobile = isMobileRef.current
-          const syncIntervalMs = isMobile ? 320 : 140
-          const hardSeekThreshold = isMobile ? 1.1 : 0.6
-          const softCorrectThreshold = isMobile ? 0.08 : 0.04
-
-          if (!force && now - lastVideoHardSyncMsRef.current < syncIntervalMs) return
-
-          // Hard seek only when drift is very large (or forced).
-          if (force || drift > hardSeekThreshold) {
-            video.currentTime = audio.currentTime
-            lastVideoHardSyncMsRef.current = now
-            video.playbackRate = audio.playbackRate
-            return
-          }
-
-          // Soft correction for small drift avoids stutter on heavy videos.
-          if (drift > softCorrectThreshold) {
-            const correction = Math.max(-0.05, Math.min(0.05, delta * 0.08))
-            video.playbackRate = audio.playbackRate + correction
-          } else if (video.playbackRate !== audio.playbackRate) {
-            video.playbackRate = audio.playbackRate
-          }
+        // Sync exactly once for each listen cycle of this track.
+        if (lastSyncedCycleRef.current !== syncCycleRef.current) {
+          video.currentTime = audio.currentTime
+          video.playbackRate = audio.playbackRate
+          lastSyncedCycleRef.current = syncCycleRef.current
         }
-
-        syncVideoToAudio(true)
 
         if (player.playing) {
           video.play().catch(() => {})
         } else {
           video.pause()
         }
-
-        const onAudioTimeUpdate = () => syncVideoToAudio(false)
-        const onAudioPlay = () => {
-          syncVideoToAudio(true)
-          video.play().catch(() => {})
-        }
-        const onAudioPause = () => {
-          syncVideoToAudio(true)
-          video.pause()
-        }
-        const onAudioSeeked = () => syncVideoToAudio(true)
-        const onAudioRateChange = () => {
-          video.playbackRate = audio.playbackRate
-        }
-
-        audio.addEventListener("timeupdate", onAudioTimeUpdate)
-        audio.addEventListener("play", onAudioPlay)
-        audio.addEventListener("pause", onAudioPause)
-        audio.addEventListener("seeked", onAudioSeeked)
-        audio.addEventListener("ratechange", onAudioRateChange)
-
-        return () => {
-          audio.removeEventListener("timeupdate", onAudioTimeUpdate)
-          audio.removeEventListener("play", onAudioPlay)
-          audio.removeEventListener("pause", onAudioPause)
-          audio.removeEventListener("seeked", onAudioSeeked)
-          audio.removeEventListener("ratechange", onAudioRateChange)
-        }
-      }, [showVideo, displayed.video, player.playing, player.audioRef, player.trackIndex])
+      }, [showVideo, activeVideoUrl, videoReady, player.playing, player.audioRef, player.trackIndex])
 
       if (loading) {
         return <div className="!text-white">Đang tải danh sách nhạc...</div>;
@@ -936,8 +895,22 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
                                   muted
                                   playsInline
                                   preload="metadata"
-                                  onLoadedData={() => setVideoReady(true)}
-                                  onCanPlay={() => setVideoReady(true)}
+                                  onLoadedData={(event) => {
+                                    const el = event.currentTarget
+                                    const audio = player.audioRef?.current
+                                    if (audio) {
+                                      el.currentTime = audio.currentTime
+                                    }
+                                    setVideoReady(true)
+                                  }}
+                                  onCanPlay={(event) => {
+                                    const el = event.currentTarget
+                                    const audio = player.audioRef?.current
+                                    if (audio) {
+                                      el.currentTime = audio.currentTime
+                                    }
+                                    setVideoReady(true)
+                                  }}
                                   onError={() => {
                                     setUnsupportedVideoSources(prev => {
                                       if (prev.has(displayed.src)) return prev
