@@ -84,11 +84,8 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
       const [focusMode, setFocusMode] = useState(false)
       const [videoReady, setVideoReady] = useState(false)
       const [unsupportedVideoSources, setUnsupportedVideoSources] = useState<Set<string>>(new Set())
-      const [isVideoLoading, setIsVideoLoading] = useState(false)
-      const [videoLoadProgress, setVideoLoadProgress] = useState(0)
-      const [activeVideoUrl, setActiveVideoUrl] = useState<string | null>(null)
       const [isAnimating, setIsAnimating] = useState(false)
-      const videoRef = useRef<HTMLVideoElement | null>(null)
+      const playerVideoRef = useRef<HTMLVideoElement | null>(null)
       const nameControls = useAnimationControls()
       const titleControls = useAnimationControls()
       const thumbControls = useAnimationControls()
@@ -104,19 +101,15 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
       const holdCompletedRef = useRef(false)
       const swipeDirectionRef = useRef<"down" | "up" | null>(null)
       const animationWatchdogRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-      const syncCycleRef = useRef(0)
-      const lastSyncedCycleRef = useRef<number | null>(null)
-      const lastProgressRef = useRef(0)
-      const videoAbortRef = useRef<AbortController | null>(null)
-      const videoObjectUrlCacheRef = useRef<Map<string, string>>(new Map())
-      const createdObjectUrlsRef = useRef<Set<string>>(new Set())
       const expanded = true
 
       useEffect(() => {
         async function fetchTracks() {
           setLoading(true)
           try {
-            const res = await fetch("/api/music-list")
+            const isMobile = typeof navigator !== "undefined" && /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent)
+            const endpoint = isMobile ? "/api/music-list?profile=mobile" : "/api/music-list"
+            const res = await fetch(endpoint)
             const data = await res.json()
             setTracks(data.tracks || [])
           } catch (error) {
@@ -130,6 +123,7 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
       const player = useAudioPlayer({
         tracks,
         autoPlay: true,
+        mediaRef: playerVideoRef,
       })
 
       const mountedRef = useRef(false)
@@ -474,91 +468,6 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
       const displayed = tracks[displayedIndex] ?? player.currentTrack ?? { title: '', artist: '', duration: '', src: '' }
       const canUseDisplayedVideo = Boolean(displayed.video && !unsupportedVideoSources.has(displayed.src))
 
-      async function resolveVideoUrlWithCache(videoUrl: string, cacheKey: string) {
-        const fromMemory = videoObjectUrlCacheRef.current.get(cacheKey)
-        if (fromMemory) {
-          setVideoLoadProgress(100)
-          return fromMemory
-        }
-
-        setIsVideoLoading(true)
-        setVideoLoadProgress(0)
-
-        const controller = new AbortController()
-        videoAbortRef.current = controller
-
-        try {
-          if (typeof caches !== "undefined") {
-            const cache = await caches.open("music-video-cache-v1")
-            const cachedResponse = await cache.match(videoUrl)
-            if (cachedResponse) {
-              const cachedBlob = await cachedResponse.blob()
-              const cachedObjectUrl = URL.createObjectURL(cachedBlob)
-              createdObjectUrlsRef.current.add(cachedObjectUrl)
-              videoObjectUrlCacheRef.current.set(cacheKey, cachedObjectUrl)
-              setVideoLoadProgress(100)
-              return cachedObjectUrl
-            }
-          }
-
-          const response = await fetch(videoUrl, { signal: controller.signal, cache: "force-cache" })
-          if (!response.ok) {
-            throw new Error(`Failed to fetch video: ${response.status}`)
-          }
-
-          const totalBytes = Number(response.headers.get("content-length") || 0)
-
-          if (!response.body) {
-            const blob = await response.blob()
-            const objectUrl = URL.createObjectURL(blob)
-            createdObjectUrlsRef.current.add(objectUrl)
-            videoObjectUrlCacheRef.current.set(cacheKey, objectUrl)
-            setVideoLoadProgress(100)
-
-            if (typeof caches !== "undefined") {
-              const cache = await caches.open("music-video-cache-v1")
-              await cache.put(videoUrl, new Response(blob, { headers: { "Content-Type": blob.type || "video/webm" } }))
-            }
-
-            return objectUrl
-          }
-
-          const reader = response.body.getReader()
-          const chunks: Uint8Array[] = []
-          let receivedBytes = 0
-
-          while (true) {
-            const { done, value } = await reader.read()
-            if (done) break
-            if (value) {
-              chunks.push(value)
-              receivedBytes += value.byteLength
-              if (totalBytes > 0) {
-                setVideoLoadProgress(Math.min(99, Math.floor((receivedBytes / totalBytes) * 100)))
-              }
-            }
-          }
-
-          const blob = new Blob(chunks, {
-            type: response.headers.get("content-type") || "video/webm",
-          })
-          const objectUrl = URL.createObjectURL(blob)
-          createdObjectUrlsRef.current.add(objectUrl)
-          videoObjectUrlCacheRef.current.set(cacheKey, objectUrl)
-          setVideoLoadProgress(100)
-
-          if (typeof caches !== "undefined") {
-            const cache = await caches.open("music-video-cache-v1")
-            await cache.put(videoUrl, new Response(blob, { headers: { "Content-Type": blob.type || "video/webm" } }))
-          }
-
-          return objectUrl
-        } finally {
-          videoAbortRef.current = null
-          setIsVideoLoading(false)
-        }
-      }
-
       useEffect(() => {
         const container = titleContainerRef.current
         const text = titleTextRef.current
@@ -594,60 +503,11 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
         setShowVideo(false)
         setFocusMode(false)
         setVideoReady(false)
-        setActiveVideoUrl(null)
-        setIsVideoLoading(false)
-        setVideoLoadProgress(0)
-        syncCycleRef.current += 1
-        lastSyncedCycleRef.current = null
-        lastProgressRef.current = 0
-        if (videoAbortRef.current) {
-          videoAbortRef.current.abort()
-          videoAbortRef.current = null
-        }
       }, [displayedIndex])
 
       useEffect(() => {
         setVideoReady(false)
       }, [displayed.video])
-
-      useEffect(() => {
-        const current = player.progress
-        const previous = lastProgressRef.current
-
-        // Detect replay/restart of current track (progress jumps backward strongly).
-        if (previous > 60 && current < 5) {
-          syncCycleRef.current += 1
-          lastSyncedCycleRef.current = null
-        }
-
-        lastProgressRef.current = current
-      }, [player.progress])
-
-      useEffect(() => {
-        if (!showVideo || !canUseDisplayedVideo || !displayed.video) return
-
-        let cancelled = false
-        resolveVideoUrlWithCache(displayed.video, displayed.src)
-          .then(url => {
-            if (cancelled) return
-            setActiveVideoUrl(url)
-          })
-          .catch(() => {
-            if (cancelled) return
-            setUnsupportedVideoSources(prev => {
-              if (prev.has(displayed.src)) return prev
-              const next = new Set(prev)
-              next.add(displayed.src)
-              return next
-            })
-            setShowVideo(false)
-            setActiveVideoUrl(null)
-          })
-
-        return () => {
-          cancelled = true
-        }
-      }, [showVideo, canUseDisplayedVideo, displayed.video, displayed.src])
 
       useEffect(() => {
         return () => {
@@ -659,15 +519,6 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
             clearTimeout(animationWatchdogRef.current)
             animationWatchdogRef.current = null
           }
-          if (videoAbortRef.current) {
-            videoAbortRef.current.abort()
-            videoAbortRef.current = null
-          }
-          createdObjectUrlsRef.current.forEach(url => {
-            URL.revokeObjectURL(url)
-          })
-          createdObjectUrlsRef.current.clear()
-          videoObjectUrlCacheRef.current.clear()
         }
       }, [])
 
@@ -741,27 +592,6 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
         cancelThumbnailHold()
       }
 
-      useEffect(() => {
-        if (!showVideo || !activeVideoUrl || !videoReady) return
-
-        const audio = player.audioRef?.current
-        const video = videoRef.current
-        if (!audio || !video) return
-
-        // Sync exactly once for each listen cycle of this track.
-        if (lastSyncedCycleRef.current !== syncCycleRef.current) {
-          video.currentTime = audio.currentTime
-          video.playbackRate = audio.playbackRate
-          lastSyncedCycleRef.current = syncCycleRef.current
-        }
-
-        if (player.playing) {
-          video.play().catch(() => {})
-        } else {
-          video.pause()
-        }
-      }, [showVideo, activeVideoUrl, videoReady, player.playing, player.audioRef, player.trackIndex])
-
       if (loading) {
         return <div className="!text-white">Đang tải danh sách nhạc...</div>;
       }
@@ -782,13 +612,15 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
       style={{ pointerEvents: isVisible ? "auto" : "none" }}
     >
       <motion.div
-        className={`bg-[#0a0a0a]/95 border border-white/10 backdrop-blur-xl relative inset-0 p-4 w-full h-full ${focusMode ? "overflow-visible" : "overflow-hidden"}`}
+        className={`bg-[#0a0a0a]/95 border border-white/10 ${showVideo ? "" : "backdrop-blur-xl"} relative inset-0 p-4 w-full h-full ${focusMode ? "overflow-visible" : "overflow-hidden"}`}
         animate={{
           height: expanded ? '100%' : 48,
         }}
         transition={ANIMATION_CONFIG.sweep}
         style={{
-          boxShadow: expanded
+          boxShadow: showVideo
+            ? "0 0 0 1px rgba(255,255,255,.08)"
+            : expanded
             ? "0 0 0 1px rgba(255,255,255,.1), 0 20px 50px -10px rgba(0,0,0,.8)"
             : "0 0 40px rgba(255,255,255,.05), 0 4px 20px -5px rgba(0,0,0,.5)",
         }}
@@ -884,31 +716,30 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
                               onPointerLeave={handleThumbnailPointerEnd}
                               title="Giữ 0.7 giây rồi kéo xuống để xem video, kéo lên để tắt video"
                             />
-                            {canUseDisplayedVideo && showVideo && activeVideoUrl ? (
-                              <div className="relative h-full w-full">
+                            {canUseDisplayedVideo ? (
+                              <div
+                                className="relative h-full w-full"
+                                style={{ contain: "layout paint style", transform: "translateZ(0)" }}
+                              >
                                 <video
-                                  ref={videoRef}
-                                  src={activeVideoUrl}
-                                  className="h-full w-full object-cover object-center"
+                                  ref={playerVideoRef}
+                                  className={`h-full w-full object-cover object-center transform-gpu will-change-transform [backface-visibility:hidden] transition-opacity duration-200 ${
+                                    showVideo ? "opacity-100" : "opacity-0 pointer-events-none"
+                                  }`}
                                   autoPlay
-                                  loop
                                   muted
                                   playsInline
-                                  preload="metadata"
+                                  preload="auto"
                                   onLoadedData={(event) => {
                                     const el = event.currentTarget
-                                    const audio = player.audioRef?.current
-                                    if (audio) {
-                                      el.currentTime = audio.currentTime
-                                    }
+                                    el.defaultPlaybackRate = 1
+                                    el.playbackRate = 1
                                     setVideoReady(true)
                                   }}
                                   onCanPlay={(event) => {
                                     const el = event.currentTarget
-                                    const audio = player.audioRef?.current
-                                    if (audio) {
-                                      el.currentTime = audio.currentTime
-                                    }
+                                    el.defaultPlaybackRate = 1
+                                    el.playbackRate = 1
                                     setVideoReady(true)
                                   }}
                                   onError={() => {
@@ -922,7 +753,7 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
                                     setVideoReady(false)
                                   }}
                                 />
-                                {displayed.thumbnail && !videoReady && (
+                                {displayed.thumbnail && (!showVideo || !videoReady) && (
                                   <img
                                     src={displayed.thumbnail}
                                     alt={`${displayed.title} artwork`}
@@ -960,7 +791,11 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
                                   type="button"
                                   onClick={(event) => {
                                     event.stopPropagation()
-                                    setShowVideo(prev => !prev)
+                                    if (showVideo) {
+                                      setShowVideo(false)
+                                    } else {
+                                      setShowVideo(true)
+                                    }
                                   }}
                                   className={`absolute left-1/2 top-full -translate-x-1/2 mt-3 z-[140] w-12 h-12 flex items-center justify-center rounded-none border transition-colors ${
                                     showVideo
@@ -1188,18 +1023,6 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
         )}
       </AnimatePresence>
 
-      <AnimatePresence>
-        {isVideoLoading && (
-          <motion.div
-            className="fixed top-4 left-1/2 -translate-x-1/2 z-[220] bg-black/80 border border-white/20 px-4 py-2 text-white text-sm font-mono"
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-          >
-            Đang tải video... {videoLoadProgress}%
-          </motion.div>
-        )}
-      </AnimatePresence>
     </motion.div>
   )
 }

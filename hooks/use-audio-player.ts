@@ -4,10 +4,11 @@ import type { Track } from "@/lib/types"
 interface UseAudioPlayerOptions {
   tracks: Track[]
   autoPlay?: boolean
+  mediaRef?: { current: HTMLVideoElement | null }
 }
 
-export function useAudioPlayer({ tracks, autoPlay = false }: UseAudioPlayerOptions) {
-  const audioRef = useRef<HTMLAudioElement | null>(null)
+export function useAudioPlayer({ tracks, autoPlay = false, mediaRef }: UseAudioPlayerOptions) {
+  const audioRef = useRef<HTMLVideoElement | null>(null)
   const lastProgressRef = useRef(0)
   const [playing, setPlaying] = useState(false)
   const [trackIndex, setTrackIndex] = useState(0)
@@ -24,14 +25,22 @@ export function useAudioPlayer({ tracks, autoPlay = false }: UseAudioPlayerOptio
 
   useEffect(() => {
     if (!currentTrack || !currentTrack.src) return;
-    const audio = new Audio(currentTrack.src)
-    audio.preload = "auto"
+    const audio = mediaRef?.current ?? new Audio(currentTrack.src)
+    if (mediaRef?.current) {
+      if (audio.src !== currentTrack.src) {
+        audio.src = currentTrack.src
+      }
+      audio.preload = "auto"
+      audio.load()
+    } else {
+      audio.preload = "auto"
+    }
     audioRef.current = audio
 
     audio.ontimeupdate = () => {
       if (audio.duration) {
         const nextProgress = (audio.currentTime / audio.duration) * 100
-        if (Math.abs(nextProgress - lastProgressRef.current) >= 0.2) {
+        if (Math.abs(nextProgress - lastProgressRef.current) >= 1) {
           lastProgressRef.current = nextProgress
           setProgress(nextProgress)
         }
@@ -74,7 +83,7 @@ export function useAudioPlayer({ tracks, autoPlay = false }: UseAudioPlayerOptio
       audio.onended = null
       audio.oncanplaythrough = null
     }
-  }, [trackIndex, currentTrack?.src, tracks.length])
+  }, [trackIndex, currentTrack?.src, tracks.length, mediaRef])
 
   useEffect(() => {
     const audio = audioRef.current
