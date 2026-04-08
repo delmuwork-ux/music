@@ -84,6 +84,9 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
       const [focusMode, setFocusMode] = useState(false)
       const [videoReady, setVideoReady] = useState(false)
       const [unsupportedVideoSources, setUnsupportedVideoSources] = useState<Set<string>>(new Set())
+      const [isVideoLoading, setIsVideoLoading] = useState(false)
+      const [videoLoadProgress, setVideoLoadProgress] = useState(0)
+      const [activeVideoUrl, setActiveVideoUrl] = useState<string | null>(null)
       const [isAnimating, setIsAnimating] = useState(false)
       const videoRef = useRef<HTMLVideoElement | null>(null)
       const nameControls = useAnimationControls()
@@ -103,6 +106,9 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
       const animationWatchdogRef = useRef<ReturnType<typeof setTimeout> | null>(null)
       const isMobileRef = useRef(false)
       const lastVideoHardSyncMsRef = useRef(0)
+      const videoAbortRef = useRef<AbortController | null>(null)
+      const videoObjectUrlCacheRef = useRef<Map<string, string>>(new Map())
+      const createdObjectUrlsRef = useRef<Set<string>>(new Set())
       const expanded = true
 
       useEffect(() => {
@@ -467,6 +473,91 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
       const displayed = tracks[displayedIndex] ?? player.currentTrack ?? { title: '', artist: '', duration: '', src: '' }
       const canUseDisplayedVideo = Boolean(displayed.video && !unsupportedVideoSources.has(displayed.src))
 
+      async function resolveVideoUrlWithCache(videoUrl: string, cacheKey: string) {
+        const fromMemory = videoObjectUrlCacheRef.current.get(cacheKey)
+        if (fromMemory) {
+          setVideoLoadProgress(100)
+          return fromMemory
+        }
+
+        setIsVideoLoading(true)
+        setVideoLoadProgress(0)
+
+        const controller = new AbortController()
+        videoAbortRef.current = controller
+
+        try {
+          if (typeof caches !== "undefined") {
+            const cache = await caches.open("music-video-cache-v1")
+            const cachedResponse = await cache.match(videoUrl)
+            if (cachedResponse) {
+              const cachedBlob = await cachedResponse.blob()
+              const cachedObjectUrl = URL.createObjectURL(cachedBlob)
+              createdObjectUrlsRef.current.add(cachedObjectUrl)
+              videoObjectUrlCacheRef.current.set(cacheKey, cachedObjectUrl)
+              setVideoLoadProgress(100)
+              return cachedObjectUrl
+            }
+          }
+
+          const response = await fetch(videoUrl, { signal: controller.signal, cache: "force-cache" })
+          if (!response.ok) {
+            throw new Error(`Failed to fetch video: ${response.status}`)
+          }
+
+          const totalBytes = Number(response.headers.get("content-length") || 0)
+
+          if (!response.body) {
+            const blob = await response.blob()
+            const objectUrl = URL.createObjectURL(blob)
+            createdObjectUrlsRef.current.add(objectUrl)
+            videoObjectUrlCacheRef.current.set(cacheKey, objectUrl)
+            setVideoLoadProgress(100)
+
+            if (typeof caches !== "undefined") {
+              const cache = await caches.open("music-video-cache-v1")
+              await cache.put(videoUrl, new Response(blob, { headers: { "Content-Type": blob.type || "video/webm" } }))
+            }
+
+            return objectUrl
+          }
+
+          const reader = response.body.getReader()
+          const chunks: Uint8Array[] = []
+          let receivedBytes = 0
+
+          while (true) {
+            const { done, value } = await reader.read()
+            if (done) break
+            if (value) {
+              chunks.push(value)
+              receivedBytes += value.byteLength
+              if (totalBytes > 0) {
+                setVideoLoadProgress(Math.min(99, Math.floor((receivedBytes / totalBytes) * 100)))
+              }
+            }
+          }
+
+          const blob = new Blob(chunks, {
+            type: response.headers.get("content-type") || "video/webm",
+          })
+          const objectUrl = URL.createObjectURL(blob)
+          createdObjectUrlsRef.current.add(objectUrl)
+          videoObjectUrlCacheRef.current.set(cacheKey, objectUrl)
+          setVideoLoadProgress(100)
+
+          if (typeof caches !== "undefined") {
+            const cache = await caches.open("music-video-cache-v1")
+            await cache.put(videoUrl, new Response(blob, { headers: { "Content-Type": blob.type || "video/webm" } }))
+          }
+
+          return objectUrl
+        } finally {
+          videoAbortRef.current = null
+          setIsVideoLoading(false)
+        }
+      }
+
       useEffect(() => {
         const container = titleContainerRef.current
         const text = titleTextRef.current
@@ -502,11 +593,44 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
         setShowVideo(false)
         setFocusMode(false)
         setVideoReady(false)
+        setActiveVideoUrl(null)
+        setIsVideoLoading(false)
+        setVideoLoadProgress(0)
+        if (videoAbortRef.current) {
+          videoAbortRef.current.abort()
+          videoAbortRef.current = null
+        }
       }, [displayedIndex])
 
       useEffect(() => {
         setVideoReady(false)
       }, [displayed.video])
+
+      useEffect(() => {
+        if (!showVideo || !canUseDisplayedVideo || !displayed.video) return
+
+        let cancelled = false
+        resolveVideoUrlWithCache(displayed.video, displayed.src)
+          .then(url => {
+            if (cancelled) return
+            setActiveVideoUrl(url)
+          })
+          .catch(() => {
+            if (cancelled) return
+            setUnsupportedVideoSources(prev => {
+              if (prev.has(displayed.src)) return prev
+              const next = new Set(prev)
+              next.add(displayed.src)
+              return next
+            })
+            setShowVideo(false)
+            setActiveVideoUrl(null)
+          })
+
+        return () => {
+          cancelled = true
+        }
+      }, [showVideo, canUseDisplayedVideo, displayed.video, displayed.src])
 
       useEffect(() => {
         return () => {
@@ -518,6 +642,15 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
             clearTimeout(animationWatchdogRef.current)
             animationWatchdogRef.current = null
           }
+          if (videoAbortRef.current) {
+            videoAbortRef.current.abort()
+            videoAbortRef.current = null
+          }
+          createdObjectUrlsRef.current.forEach(url => {
+            URL.revokeObjectURL(url)
+          })
+          createdObjectUrlsRef.current.clear()
+          videoObjectUrlCacheRef.current.clear()
         }
       }, [])
 
@@ -792,17 +925,17 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
                               onPointerLeave={handleThumbnailPointerEnd}
                               title="Giữ 0.7 giây rồi kéo xuống để xem video, kéo lên để tắt video"
                             />
-                            {canUseDisplayedVideo && (showVideo || !displayed.thumbnail) ? (
+                            {canUseDisplayedVideo && showVideo && activeVideoUrl ? (
                               <div className="relative h-full w-full">
                                 <video
                                   ref={videoRef}
-                                  src={displayed.video}
+                                  src={activeVideoUrl}
                                   className="h-full w-full object-cover object-center"
                                   autoPlay
                                   loop
                                   muted
                                   playsInline
-                                  preload="auto"
+                                  preload="metadata"
                                   onLoadedData={() => setVideoReady(true)}
                                   onCanPlay={() => setVideoReady(true)}
                                   onError={() => {
@@ -824,12 +957,16 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
                                   />
                                 )}
                               </div>
-                            ) : (
+                            ) : displayed.thumbnail ? (
                               <img
                                 src={displayed.thumbnail}
                                 alt={`${displayed.title} artwork`}
                                 className="h-full w-full object-cover object-center"
                               />
+                            ) : (
+                              <div className="h-full w-full bg-white/10 flex items-center justify-center">
+                                <Music2 className="w-12 h-12 text-white/70" />
+                              </div>
                             )}
                             <AnimatePresence mode="wait">
                               {thumbSweep && (
@@ -1075,6 +1212,19 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
             exit={{ opacity: 0 }}
             aria-label="Đóng chế độ xem nổi bật"
           />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {isVideoLoading && (
+          <motion.div
+            className="fixed top-4 left-1/2 -translate-x-1/2 z-[220] bg-black/80 border border-white/20 px-4 py-2 text-white text-sm font-mono"
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+          >
+            Đang tải video... {videoLoadProgress}%
+          </motion.div>
         )}
       </AnimatePresence>
     </motion.div>
