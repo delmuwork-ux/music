@@ -8,6 +8,7 @@ interface UseAudioPlayerOptions {
 
 export function useAudioPlayer({ tracks, autoPlay = false }: UseAudioPlayerOptions) {
   const audioRef = useRef<HTMLAudioElement | null>(null)
+  const lastProgressRef = useRef(0)
   const [playing, setPlaying] = useState(false)
   const [trackIndex, setTrackIndex] = useState(0)
   const [progress, setProgress] = useState(0)
@@ -29,12 +30,17 @@ export function useAudioPlayer({ tracks, autoPlay = false }: UseAudioPlayerOptio
 
     audio.ontimeupdate = () => {
       if (audio.duration) {
-        setProgress((audio.currentTime / audio.duration) * 100)
+        const nextProgress = (audio.currentTime / audio.duration) * 100
+        if (Math.abs(nextProgress - lastProgressRef.current) >= 0.2) {
+          lastProgressRef.current = nextProgress
+          setProgress(nextProgress)
+        }
       }
     }
 
     audio.onended = () => {
       setTrackIndex(i => (i + 1) % tracks.length)
+      lastProgressRef.current = 0
       setProgress(0)
     }
 
@@ -100,16 +106,19 @@ export function useAudioPlayer({ tracks, autoPlay = false }: UseAudioPlayerOptio
   const changeTrack = useCallback((index: number) => {
     if (index < 0 || index >= tracks.length) return
     setTrackIndex(index)
+    lastProgressRef.current = 0
     setProgress(0)
   }, [tracks.length])
 
   const next = useCallback(() => {
     setTrackIndex(i => (i + 1) % tracks.length)
+    lastProgressRef.current = 0
     setProgress(0)
   }, [tracks.length])
 
   const prev = useCallback(() => {
     setTrackIndex(i => (i - 1 + tracks.length) % tracks.length)
+    lastProgressRef.current = 0
     setProgress(0)
   }, [tracks.length])
 

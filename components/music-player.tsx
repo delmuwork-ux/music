@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react"
 import { motion, AnimatePresence, useAnimationControls } from "framer-motion"
-import { Play, Pause, SkipBack, SkipForward, Music2 } from "lucide-react"
+import { Play, Pause, SkipBack, SkipForward, Music2, Video, ImageIcon } from "lucide-react"
 import { Repeat, Shuffle } from "lucide-react"
 
 import { useAudioPlayer } from "@/hooks/use-audio-player"
@@ -20,9 +20,24 @@ interface Track {
   duration: string
   src: string
   thumbnail?: string
+  video?: string
 }
 
 function AudioBars({ playing }: { playing: boolean }) {
+  if (!playing) {
+    return (
+      <div className="flex items-end gap-[2px] h-3">
+        {[0, 1, 2, 3].map(i => (
+          <div
+            key={i}
+            className="w-[3px] bg-white rounded-none origin-bottom"
+            style={{ height: 12, transform: "scaleY(0.3)" }}
+          />
+        ))}
+      </div>
+    )
+  }
+
   return (
     <div className="flex items-end gap-[2px] h-3">
       {[0, 1, 2, 3].map(i => (
@@ -60,15 +75,17 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
       const repeatSweepInProgress = useRef(false)
 
 
-      const [hovered, setHovered] = useState(false)
       const [tracks, setTracks] = useState<Track[]>([])
       const [loading, setLoading] = useState(true)
-      const [visibleNow, setVisibleNow] = useState(isVisible)
       const [nameSweep, setNameSweep] = useState(false)
       const [thumbSweep, setThumbSweep] = useState(false)
       const [displayedIndex, setDisplayedIndex] = useState(0)
+      const [showVideo, setShowVideo] = useState(false)
+      const [focusMode, setFocusMode] = useState(false)
+      const [videoReady, setVideoReady] = useState(false)
+      const [unsupportedVideoSources, setUnsupportedVideoSources] = useState<Set<string>>(new Set())
       const [isAnimating, setIsAnimating] = useState(false)
-      const pendingIndex = useRef<number>(0)
+      const videoRef = useRef<HTMLVideoElement | null>(null)
       const nameControls = useAnimationControls()
       const titleControls = useAnimationControls()
       const thumbControls = useAnimationControls()
@@ -78,6 +95,12 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
       const titleContainerRef = useRef<HTMLDivElement | null>(null)
       const titleTextRef = useRef<HTMLDivElement | null>(null)
       const queueRef = useRef<HTMLDivElement | null>(null)
+      const focusCardRef = useRef<HTMLDivElement | null>(null)
+      const holdTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+      const holdStartYRef = useRef<number | null>(null)
+      const holdCompletedRef = useRef(false)
+      const swipeDirectionRef = useRef<"down" | "up" | null>(null)
+      const animationWatchdogRef = useRef<ReturnType<typeof setTimeout> | null>(null)
       const expanded = true
 
       useEffect(() => {
@@ -116,7 +139,6 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
 
       useEffect(() => {
         setDisplayedIndex(player.trackIndex)
-        pendingIndex.current = player.trackIndex
         if (!initialLoadRef.current && !skipNextSweepRef.current) {
           runSweep(player.trackIndex)
         }
@@ -166,24 +188,6 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
 
         performAnimatedTrackSwitch(action, index)
       }
-
-      useEffect(() => {
-        const handler = () => player.play()
-        const started = () => setVisibleNow(true)
-        window.addEventListener("unlockAudio", handler)
-        window.addEventListener("musicStarted", started)
-
-        if ((typeof window !== "undefined") && (window as any).__musicStarted) setVisibleNow(true)
-
-        return () => {
-          window.removeEventListener("unlockAudio", handler)
-          window.removeEventListener("musicStarted", started)
-        }
-      }, [player])
-
-      useEffect(() => {
-        if (!isVisible) setVisibleNow(false)
-      }, [isVisible])
 
       useEffect(() => {
         const el = queueRef.current
@@ -340,7 +344,11 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
         })
       }
 
-      async function performAnimatedTrackSwitch(action: () => void, targetIndex?: number) {
+      async function performAnimatedTrackSwitch(
+        action: () => void,
+        targetIndex?: number,
+        options?: { skipLoadWait?: boolean }
+      ) {
         const myToken = ++sweepToken.current
         
         if (!mountedRef.current || isAnimatingRef.current) {
@@ -349,6 +357,15 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
 
         isAnimatingRef.current = true
         setIsAnimating(true)
+        if (animationWatchdogRef.current) {
+          clearTimeout(animationWatchdogRef.current)
+        }
+        animationWatchdogRef.current = setTimeout(() => {
+          isAnimatingRef.current = false
+          setIsAnimating(false)
+          setNameSweep(false)
+          setThumbSweep(false)
+        }, 8000)
 
         try {
           setNameSweep(true)
@@ -379,20 +396,21 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
           // If caller provided a target index, update visual thumbnail immediately
           if (typeof targetIndex === 'number') {
             setDisplayedIndex(targetIndex)
-            pendingIndex.current = targetIndex
           }
 
           action()
 
-          // Phase 3.5: Wait for audio and thumbnail to load
-          const targetTrack = tracks[targetIndex ?? player.trackIndex]
-          const [audioReady, thumbReady] = await Promise.all([
-            waitForAudioReady(targetIndex ?? player.trackIndex),
-            waitForThumbnailLoad(targetTrack?.thumbnail),
-          ])
+          if (!options?.skipLoadWait) {
+            // Phase 3.5: Wait for audio and thumbnail to load
+            const targetTrack = tracks[targetIndex ?? player.trackIndex]
+            await Promise.all([
+              waitForAudioReady(targetIndex ?? player.trackIndex),
+              waitForThumbnailLoad(targetTrack?.thumbnail),
+            ])
 
-          // Keep sweep covering for additional 0.2s after load verification
-          await new Promise<void>(resolve => setTimeout(resolve, 200))
+            // Keep sweep covering for additional 0.2s after load verification
+            await new Promise<void>(resolve => setTimeout(resolve, 200))
+          }
 
           if (myToken !== sweepToken.current) return
 
@@ -409,13 +427,17 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
             setThumbSweep(false)
           }
         } finally {
+          if (animationWatchdogRef.current) {
+            clearTimeout(animationWatchdogRef.current)
+            animationWatchdogRef.current = null
+          }
           isAnimatingRef.current = false
           setIsAnimating(false)
         }
       }
 
       // Shuffle logic: randomize next track without repeating until all tracks are played
-      function handleNext() {
+      function handleNext(options?: { skipLoadWait?: boolean }) {
         let action: () => void
         let targetIndex: number | undefined
 
@@ -437,10 +459,11 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
           player.play()
         }
 
-        performAnimatedTrackSwitch(action, targetIndex)
+        performAnimatedTrackSwitch(action, targetIndex, options)
       }
 
       const displayed = tracks[displayedIndex] ?? player.currentTrack ?? { title: '', artist: '', duration: '', src: '' }
+      const canUseDisplayedVideo = Boolean(displayed.video && !unsupportedVideoSources.has(displayed.src))
 
       useEffect(() => {
         const container = titleContainerRef.current
@@ -473,15 +496,157 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
         })
       }, [displayed.title, titleControls])
 
+      useEffect(() => {
+        setShowVideo(false)
+        setFocusMode(false)
+        setVideoReady(false)
+      }, [displayedIndex])
+
+      useEffect(() => {
+        setVideoReady(false)
+      }, [displayed.video])
+
+      useEffect(() => {
+        return () => {
+          if (holdTimerRef.current) {
+            clearTimeout(holdTimerRef.current)
+            holdTimerRef.current = null
+          }
+          if (animationWatchdogRef.current) {
+            clearTimeout(animationWatchdogRef.current)
+            animationWatchdogRef.current = null
+          }
+        }
+      }, [])
+
+      useEffect(() => {
+        if (!focusMode) return
+
+        const handlePointerDown = (event: PointerEvent) => {
+          const target = event.target as Node | null
+          if (!target) return
+          if (focusCardRef.current?.contains(target)) return
+          setFocusMode(false)
+        }
+
+        document.addEventListener("pointerdown", handlePointerDown)
+        return () => {
+          document.removeEventListener("pointerdown", handlePointerDown)
+        }
+      }, [focusMode])
+
+      const startThumbnailHold = () => {
+        if (holdTimerRef.current) {
+          clearTimeout(holdTimerRef.current)
+        }
+        holdCompletedRef.current = false
+        swipeDirectionRef.current = null
+        holdTimerRef.current = setTimeout(() => {
+          setFocusMode(true)
+          holdCompletedRef.current = true
+          holdTimerRef.current = null
+        }, 700)
+      }
+
+      const cancelThumbnailHold = () => {
+        if (holdTimerRef.current) {
+          clearTimeout(holdTimerRef.current)
+          holdTimerRef.current = null
+        }
+        holdCompletedRef.current = false
+        holdStartYRef.current = null
+        swipeDirectionRef.current = null
+      }
+
+      const handleThumbnailPointerDown = (event: React.PointerEvent<HTMLButtonElement>) => {
+        holdStartYRef.current = event.clientY
+        startThumbnailHold()
+      }
+
+      const handleThumbnailPointerMove = (event: React.PointerEvent<HTMLButtonElement>) => {
+        if (!holdCompletedRef.current) return
+        if (!canUseDisplayedVideo) return
+        if (holdStartYRef.current === null) return
+
+        const deltaY = event.clientY - holdStartYRef.current
+        if (deltaY >= 60) {
+          swipeDirectionRef.current = "down"
+        } else if (deltaY <= -60) {
+          swipeDirectionRef.current = "up"
+        }
+      }
+
+      const handleThumbnailPointerEnd = () => {
+        if (holdCompletedRef.current && swipeDirectionRef.current && canUseDisplayedVideo) {
+          if (swipeDirectionRef.current === "down") {
+            setShowVideo(true)
+            setFocusMode(false)
+          } else if (swipeDirectionRef.current === "up") {
+            setShowVideo(false)
+            setFocusMode(false)
+          }
+        }
+        cancelThumbnailHold()
+      }
+
+      useEffect(() => {
+        if (!showVideo) return
+
+        const audio = player.audioRef?.current
+        const video = videoRef.current
+        if (!audio || !video) return
+
+        const syncVideoToAudio = () => {
+          if (!videoRef.current) return
+          const drift = Math.abs(video.currentTime - audio.currentTime)
+          if (drift > 0.2) {
+            video.currentTime = audio.currentTime
+          }
+        }
+
+        syncVideoToAudio()
+
+        if (player.playing) {
+          video.play().catch(() => {})
+        } else {
+          video.pause()
+        }
+
+        const onAudioTimeUpdate = () => syncVideoToAudio()
+        const onAudioPlay = () => {
+          syncVideoToAudio()
+          video.play().catch(() => {})
+        }
+        const onAudioPause = () => {
+          syncVideoToAudio()
+          video.pause()
+        }
+        const onAudioSeeked = () => syncVideoToAudio()
+        const onAudioRateChange = () => {
+          video.playbackRate = audio.playbackRate
+        }
+
+        audio.addEventListener("timeupdate", onAudioTimeUpdate)
+        audio.addEventListener("play", onAudioPlay)
+        audio.addEventListener("pause", onAudioPause)
+        audio.addEventListener("seeked", onAudioSeeked)
+        audio.addEventListener("ratechange", onAudioRateChange)
+
+        return () => {
+          audio.removeEventListener("timeupdate", onAudioTimeUpdate)
+          audio.removeEventListener("play", onAudioPlay)
+          audio.removeEventListener("pause", onAudioPause)
+          audio.removeEventListener("seeked", onAudioSeeked)
+          audio.removeEventListener("ratechange", onAudioRateChange)
+        }
+      }, [showVideo, displayed.video, player.playing, player.audioRef, player.trackIndex])
+
       if (loading) {
         return <div className="!text-white">Đang tải danh sách nhạc...</div>;
       }
       if (!tracks || tracks.length === 0) {
         return <div className="!text-white">Không có file nhạc nào trong thư mục <b>public/music</b>.</div>;
       }
-
-      // Chiều cao cố định để chạy gần full viewport
-      const FIXED_HEIGHT = 'calc(100vh - 32px)'
 
   return (
     <motion.div
@@ -494,11 +659,9 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
       }}
       transition={{ duration: 0.5, ease: [0.34, 1.56, 0.64, 1] }}
       style={{ pointerEvents: isVisible ? "auto" : "none" }}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
     >
       <motion.div
-        className="bg-[#0a0a0a]/95 border border-white/10 overflow-hidden backdrop-blur-xl relative inset-0 p-4 w-full h-full"
+        className={`bg-[#0a0a0a]/95 border border-white/10 backdrop-blur-xl relative inset-0 p-4 w-full h-full ${focusMode ? "overflow-visible" : "overflow-hidden"}`}
         animate={{
           height: expanded ? '100%' : 48,
         }}
@@ -577,16 +740,68 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
                 transition={{ duration: 0.15 }}
               >
                 <div className="flex flex-col gap-3">
-                  <div className="min-w-0 w-full relative overflow-hidden">
+                  <div className={`min-w-0 w-full relative ${focusMode ? "overflow-visible" : "overflow-hidden"}`}>
                     <div className="relative w-full flex flex-col items-center justify-center gap-3">
                       <div className="flex items-center justify-center w-full relative">
-                        {displayed.thumbnail ? (
-                          <div className="w-[min(88vw,360px)] h-[min(88vw,360px)] overflow-hidden bg-white/5 relative">
-                            <img
-                              src={displayed.thumbnail}
-                              alt={`${displayed.title} artwork`}
-                              className="h-full w-full object-cover object-center"
+                        {displayed.thumbnail || displayed.video ? (
+                          <motion.div
+                            ref={focusCardRef}
+                            className={`w-[min(88vw,360px)] h-[min(88vw,360px)] bg-white/5 relative ${
+                              focusMode ? "fixed inset-0 m-auto z-[130] shadow-[0_0_0_1px_rgba(255,255,255,.15),0_30px_80px_rgba(0,0,0,.55)]" : ""
+                            }`}
+                            animate={focusMode ? { scale: 1.06 } : { scale: 1 }}
+                            transition={{ duration: 0.25, ease: "easeOut" }}
+                          >
+                            <div className="absolute inset-0 overflow-hidden">
+                            <button
+                              type="button"
+                              className="absolute inset-0 z-10"
+                              onPointerDown={handleThumbnailPointerDown}
+                              onPointerMove={handleThumbnailPointerMove}
+                              onPointerUp={handleThumbnailPointerEnd}
+                              onPointerCancel={handleThumbnailPointerEnd}
+                              onPointerLeave={handleThumbnailPointerEnd}
+                              title="Giữ 0.7 giây rồi kéo xuống để xem video, kéo lên để tắt video"
                             />
+                            {canUseDisplayedVideo && (showVideo || !displayed.thumbnail) ? (
+                              <div className="relative h-full w-full">
+                                <video
+                                  ref={videoRef}
+                                  src={displayed.video}
+                                  className="h-full w-full object-cover object-center"
+                                  autoPlay
+                                  loop
+                                  muted
+                                  playsInline
+                                  preload="auto"
+                                  onLoadedData={() => setVideoReady(true)}
+                                  onCanPlay={() => setVideoReady(true)}
+                                  onError={() => {
+                                    setUnsupportedVideoSources(prev => {
+                                      if (prev.has(displayed.src)) return prev
+                                      const next = new Set(prev)
+                                      next.add(displayed.src)
+                                      return next
+                                    })
+                                    setShowVideo(false)
+                                    setVideoReady(false)
+                                  }}
+                                />
+                                {displayed.thumbnail && !videoReady && (
+                                  <img
+                                    src={displayed.thumbnail}
+                                    alt={`${displayed.title} artwork`}
+                                    className="absolute inset-0 h-full w-full object-cover object-center pointer-events-none"
+                                  />
+                                )}
+                              </div>
+                            ) : (
+                              <img
+                                src={displayed.thumbnail}
+                                alt={`${displayed.title} artwork`}
+                                className="h-full w-full object-cover object-center"
+                              />
+                            )}
                             <AnimatePresence mode="wait">
                               {thumbSweep && (
                                 <motion.div
@@ -599,7 +814,31 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
                                 />
                               )}
                             </AnimatePresence>
-                          </div>
+                            </div>
+                            <AnimatePresence>
+                              {focusMode && canUseDisplayedVideo && (
+                                <motion.button
+                                  type="button"
+                                  onClick={(event) => {
+                                    event.stopPropagation()
+                                    setShowVideo(prev => !prev)
+                                  }}
+                                  className={`absolute left-1/2 top-full -translate-x-1/2 mt-3 z-[140] w-12 h-12 flex items-center justify-center rounded-none border transition-colors ${
+                                    showVideo
+                                      ? "bg-white text-slate-950 border-white hover:bg-slate-100"
+                                      : "bg-black/55 text-white border-white/30 hover:bg-black/75"
+                                  }`}
+                                  initial={{ opacity: 0, y: 24 }}
+                                  animate={{ opacity: 1, y: 0 }}
+                                  exit={{ opacity: 0, y: 12 }}
+                                  transition={{ duration: 0.25, ease: "easeOut" }}
+                                  title={showVideo ? "Hiện ảnh bìa" : "Hiện video"}
+                                >
+                                  {showVideo ? <ImageIcon className="w-5 h-5" /> : <Video className="w-5 h-5" />}
+                                </motion.button>
+                              )}
+                            </AnimatePresence>
+                          </motion.div>
                         ) : (
                           <div className="w-[min(88vw,360px)] h-[min(88vw,360px)] overflow-hidden bg-white/10 flex items-center justify-center">
                             <Music2 className="w-12 h-12 text-white/70" />
@@ -796,6 +1035,19 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
           </div>
         </motion.div>
       </motion.div>
+
+      <AnimatePresence>
+        {focusMode && (
+          <motion.button
+            type="button"
+            className="fixed inset-0 z-[110] bg-transparent pointer-events-none"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            aria-label="Đóng chế độ xem nổi bật"
+          />
+        )}
+      </AnimatePresence>
     </motion.div>
   )
 }
