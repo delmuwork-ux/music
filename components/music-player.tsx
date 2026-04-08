@@ -101,6 +101,8 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
       const holdCompletedRef = useRef(false)
       const swipeDirectionRef = useRef<"down" | "up" | null>(null)
       const animationWatchdogRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+      const isMobileRef = useRef(false)
+      const lastVideoHardSyncMsRef = useRef(0)
       const expanded = true
 
       useEffect(() => {
@@ -520,6 +522,12 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
       }, [])
 
       useEffect(() => {
+        if (typeof navigator !== "undefined") {
+          isMobileRef.current = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent)
+        }
+      }, [])
+
+      useEffect(() => {
         if (!focusMode) return
 
         const handlePointerDown = (event: PointerEvent) => {
@@ -596,15 +604,23 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
         const video = videoRef.current
         if (!audio || !video) return
 
-        const syncVideoToAudio = () => {
+        const syncVideoToAudio = (force = false) => {
           if (!videoRef.current) return
+          const now = Date.now()
           const drift = Math.abs(video.currentTime - audio.currentTime)
-          if (drift > 0.2) {
+          const isMobile = isMobileRef.current
+          const syncIntervalMs = isMobile ? 280 : 120
+          const driftThreshold = isMobile ? 0.45 : 0.2
+
+          if (!force && now - lastVideoHardSyncMsRef.current < syncIntervalMs) return
+
+          if (force || drift > driftThreshold) {
             video.currentTime = audio.currentTime
+            lastVideoHardSyncMsRef.current = now
           }
         }
 
-        syncVideoToAudio()
+        syncVideoToAudio(true)
 
         if (player.playing) {
           video.play().catch(() => {})
@@ -612,16 +628,16 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
           video.pause()
         }
 
-        const onAudioTimeUpdate = () => syncVideoToAudio()
+        const onAudioTimeUpdate = () => syncVideoToAudio(false)
         const onAudioPlay = () => {
-          syncVideoToAudio()
+          syncVideoToAudio(true)
           video.play().catch(() => {})
         }
         const onAudioPause = () => {
-          syncVideoToAudio()
+          syncVideoToAudio(true)
           video.pause()
         }
-        const onAudioSeeked = () => syncVideoToAudio()
+        const onAudioSeeked = () => syncVideoToAudio(true)
         const onAudioRateChange = () => {
           video.playbackRate = audio.playbackRate
         }
