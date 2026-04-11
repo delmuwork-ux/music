@@ -723,11 +723,12 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
                               >
                                 <video
                                   ref={playerVideoRef}
+                                  src={player.currentTrack?.src || displayed.src}
                                   className={`h-full w-full object-cover object-center transform-gpu will-change-transform [backface-visibility:hidden] transition-opacity duration-200 ${
                                     showVideo ? "opacity-100" : "opacity-0 pointer-events-none"
                                   }`}
                                   autoPlay
-                                  muted
+                                  muted={false}
                                   playsInline
                                   preload="auto"
                                   onLoadedData={(event) => {
