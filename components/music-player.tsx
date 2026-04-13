@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react"
-import { motion, AnimatePresence, useAnimationControls } from "framer-motion"
+import { motion, AnimatePresence, LayoutGroup, useAnimationControls } from "framer-motion"
 import { Play, Pause, SkipBack, SkipForward, Music2, Video, ImageIcon } from "lucide-react"
 import { Repeat, Shuffle } from "lucide-react"
 
@@ -83,8 +83,12 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
       const [showVideo, setShowVideo] = useState(false)
       const [focusMode, setFocusMode] = useState(false)
       const [videoReady, setVideoReady] = useState(false)
+      const [thumbnailFallbackBySrc, setThumbnailFallbackBySrc] = useState<Record<string, string>>({})
       const [unsupportedVideoSources, setUnsupportedVideoSources] = useState<Set<string>>(new Set())
       const [isAnimating, setIsAnimating] = useState(false)
+      const [showPlaylistPopup, setShowPlaylistPopup] = useState(false)
+      const [showPlaylistOverlay, setShowPlaylistOverlay] = useState(false)
+      const [isLayoutTransitioning, setIsLayoutTransitioning] = useState(false)
       const playerVideoRef = useRef<HTMLVideoElement | null>(null)
       const nameControls = useAnimationControls()
       const titleControls = useAnimationControls()
@@ -124,6 +128,7 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
         tracks,
         autoPlay: true,
         mediaRef: playerVideoRef,
+        onEnded: () => handleNext({ skipLoadWait: true }),
       })
 
       const mountedRef = useRef(false)
@@ -441,6 +446,10 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
 
       // Shuffle logic: randomize next track without repeating until all tracks are played
       function handleNext(options?: { skipLoadWait?: boolean }) {
+        if (tracks.length === 0) {
+          return
+        }
+
         let action: () => void
         let targetIndex: number | undefined
 
@@ -466,7 +475,28 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
       }
 
       const displayed = tracks[displayedIndex] ?? player.currentTrack ?? { title: '', artist: '', duration: '', src: '' }
+      const defaultThumbnailFromSrc = displayed.src
+        ? displayed.src.replace(/\.m4a$/i, '.jpg')
+        : undefined
+      const displayedThumbnail = thumbnailFallbackBySrc[displayed.src] ?? displayed.thumbnail ?? defaultThumbnailFromSrc
       const canUseDisplayedVideo = Boolean(displayed.video && !unsupportedVideoSources.has(displayed.src))
+
+      const handleDisplayedThumbnailError = () => {
+        if (!displayed.src || !displayedThumbnail) return
+
+        const toggledDashVariant = displayedThumbnail.includes('%20-%20')
+          ? displayedThumbnail.replace('%20-%20', '-')
+          : displayedThumbnail.includes('-')
+            ? displayedThumbnail.replace('-', '%20-%20')
+            : displayedThumbnail
+
+        if (toggledDashVariant === displayedThumbnail) return
+
+        setThumbnailFallbackBySrc(prev => ({
+          ...prev,
+          [displayed.src]: toggledDashVariant,
+        }))
+      }
 
       useEffect(() => {
         const container = titleContainerRef.current
@@ -521,6 +551,25 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
           }
         }
       }, [])
+
+      useEffect(() => {
+        if (!showPlaylistPopup) {
+          setShowPlaylistOverlay(false)
+          return
+        }
+
+        const timer = setTimeout(() => {
+          setShowPlaylistOverlay(true)
+        }, 240)
+
+        return () => clearTimeout(timer)
+      }, [showPlaylistPopup])
+
+      useEffect(() => {
+        setIsLayoutTransitioning(true)
+        const timer = setTimeout(() => setIsLayoutTransitioning(false), 650)
+        return () => clearTimeout(timer)
+      }, [showPlaylistPopup])
 
       useEffect(() => {
         if (!focusMode) return
@@ -596,7 +645,7 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
         return <div className="!text-white">Đang tải danh sách nhạc...</div>;
       }
       if (!tracks || tracks.length === 0) {
-        return <div className="!text-white">Không có file nhạc nào trong thư mục <b>public/music</b>.</div>;
+        return <div className="!text-white">Không có file nhạc nào trong thư mục <b>public/music &amp; thumbail</b>.</div>;
       }
 
   return (
@@ -612,7 +661,7 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
       style={{ pointerEvents: isVisible ? "auto" : "none" }}
     >
       <motion.div
-        className={`bg-[#0a0a0a]/95 border border-white/10 ${showVideo ? "" : "backdrop-blur-xl"} relative inset-0 p-4 w-full h-full ${focusMode ? "overflow-visible" : "overflow-hidden"}`}
+        className={`bg-black border border-white/10 relative inset-0 p-4 w-full h-full ${focusMode ? "overflow-visible" : "overflow-hidden"}`}
         animate={{
           height: expanded ? '100%' : 48,
         }}
@@ -625,24 +674,23 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
             : "0 0 40px rgba(255,255,255,.05), 0 4px 20px -5px rgba(0,0,0,.5)",
         }}
       >
-        <motion.div
-          className="h-[2px] bg-white/5 relative overflow-hidden"
-          animate={{ opacity: expanded ? 1 : 0 }}
-          transition={{ duration: 0.2 }}
-        >
-          <motion.div
-            className="absolute inset-y-0 left-0 bg-white"
-            animate={{ width: `${player.progress}%` }}
-            transition={{ duration: 0.1 }}
+        {displayedThumbnail && (
+          <img
+            src={displayedThumbnail}
+            alt=""
+            className="absolute inset-0 h-full w-full object-cover object-center opacity-55 blur-3xl scale-125 pointer-events-none"
+            aria-hidden="true"
           />
-        </motion.div>
+        )}
+        <div className="absolute inset-0 bg-black/45 backdrop-blur-xl pointer-events-none" />
 
         <motion.div
-          className="h-full flex flex-col"
+          className="h-full flex flex-col relative z-10"
           animate={{ padding: expanded ? 16 : 10 }}
           transition={ANIMATION_CONFIG.sweep}
         >
-          <AnimatePresence mode="wait">
+          <LayoutGroup>
+          <AnimatePresence>
             {!expanded ? (
               <motion.div
                 key="compact"
@@ -692,18 +740,103 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0.15 }}
               >
-                <div className="flex flex-col gap-3">
+                <AnimatePresence initial={false} mode="popLayout">
+                {showPlaylistPopup ? (
+                  <motion.div
+                    key="mini-header"
+                    className="flex items-center gap-3 border-b border-white/10 pb-3"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                  >
+                    <motion.button
+                      type="button"
+                      onClick={() => setShowPlaylistPopup(false)}
+                      layoutId="player-artwork"
+                      transition={{ type: "spring", stiffness: 360, damping: 32 }}
+                      className="w-16 h-16 bg-white/10 overflow-hidden flex items-center justify-center shrink-0"
+                      title="Quay lại player lớn"
+                    >
+                      {displayedThumbnail ? (
+                        <img
+                          src={displayedThumbnail}
+                          alt={`${displayed.title} artwork`}
+                          className="w-full h-full object-cover"
+                          onError={handleDisplayedThumbnailError}
+                        />
+                      ) : (
+                        <Music2 className="w-8 h-8 text-white/70" />
+                      )}
+                    </motion.button>
+
+                    <motion.div
+                      layoutId="player-title-block"
+                      className={`min-w-0 flex-1 relative ${isLayoutTransitioning ? "z-[80] overflow-visible" : "z-20 overflow-hidden"}`}
+                    >
+                      <motion.p
+                        layoutId="player-title-text"
+                        className={`font-semibold text-white leading-tight text-[18px] relative max-w-full truncate ${isLayoutTransitioning ? "z-[90]" : "z-20"}`}
+                      >
+                        {displayed.title}
+                      </motion.p>
+                      <motion.div layoutId="player-artist-bar" className={`h-4 w-[100px] bg-white/90 mt-1 relative ${isLayoutTransitioning ? "z-[90]" : "z-20"}`} />
+                    </motion.div>
+
+                    <div className="flex items-center gap-2">
+                      <motion.button
+                        layout
+                        layoutId="player-prev-btn"
+                        transition={{ type: "spring", stiffness: 360, damping: 32 }}
+                        onClick={handlePrev}
+                        disabled={isAnimating}
+                        className={`w-12 h-12 text-white hover:text-white hover:bg-white/10 transition-all flex items-center justify-center rounded-none disabled:opacity-50 disabled:cursor-not-allowed relative ${isLayoutTransitioning ? "z-[95]" : "z-20"}`}
+                        whileTap={{ scale: 0.9 }}
+                      >
+                        <SkipBack className="w-7 h-7" fill="currentColor" />
+                      </motion.button>
+                      <motion.button
+                        layout
+                        layoutId="player-play-btn"
+                        transition={{ type: "spring", stiffness: 360, damping: 32 }}
+                        onClick={player.toggle}
+                        className={`w-12 h-12 bg-white text-slate-950 flex items-center justify-center hover:bg-slate-100 transition-transform rounded-none border border-white/10 relative ${isLayoutTransitioning ? "z-[95]" : "z-20"}`}
+                        whileTap={{ scale: 0.95 }}
+                      >
+                        {player.playing ? <Pause className="w-6 h-6" fill="currentColor" /> : <Play className="w-6 h-6" fill="currentColor" />}
+                      </motion.button>
+                      <motion.button
+                        layout
+                        layoutId="player-next-btn"
+                        transition={{ type: "spring", stiffness: 360, damping: 32 }}
+                        onClick={handleNext}
+                        disabled={isAnimating}
+                        className={`w-12 h-12 text-white hover:text-white hover:bg-white/10 transition-all flex items-center justify-center rounded-none disabled:opacity-50 disabled:cursor-not-allowed relative ${isLayoutTransitioning ? "z-[95]" : "z-20"}`}
+                        whileTap={{ scale: 0.9 }}
+                      >
+                        <SkipForward className="w-7 h-7" fill="currentColor" />
+                      </motion.button>
+                    </div>
+                  </motion.div>
+                ) : (
+                <motion.div
+                  key="large-header"
+                  className="flex flex-col gap-3"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                >
                   <div className={`min-w-0 w-full relative ${focusMode ? "overflow-visible" : "overflow-hidden"}`}>
                     <div className="relative w-full flex flex-col items-center justify-center gap-3">
-                      <div className="flex items-center justify-center w-full relative">
-                        {displayed.thumbnail || displayed.video ? (
+                      <div className="mt-8 flex items-center justify-center w-full relative">
+                        {displayedThumbnail || displayed.video ? (
                           <motion.div
+                            layoutId="player-artwork"
                             ref={focusCardRef}
                             className={`w-[min(88vw,360px)] h-[min(88vw,360px)] bg-white/5 relative ${
                               focusMode ? "fixed inset-0 m-auto z-[130] shadow-[0_0_0_1px_rgba(255,255,255,.15),0_30px_80px_rgba(0,0,0,.55)]" : ""
                             }`}
                             animate={focusMode ? { scale: 1.06 } : { scale: 1 }}
-                            transition={{ duration: 0.25, ease: "easeOut" }}
+                            transition={{ duration: 0.25, ease: "easeOut", layout: { type: "spring", stiffness: 360, damping: 32 } }}
                           >
                             <div className="absolute inset-0 overflow-hidden">
                             <button
@@ -754,19 +887,21 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
                                     setVideoReady(false)
                                   }}
                                 />
-                                {displayed.thumbnail && (!showVideo || !videoReady) && (
+                                {displayedThumbnail && (!showVideo || !videoReady) && (
                                   <img
-                                    src={displayed.thumbnail}
+                                    src={displayedThumbnail}
                                     alt={`${displayed.title} artwork`}
                                     className="absolute inset-0 h-full w-full object-cover object-center pointer-events-none"
+                                    onError={handleDisplayedThumbnailError}
                                   />
                                 )}
                               </div>
-                            ) : displayed.thumbnail ? (
+                            ) : displayedThumbnail ? (
                               <img
-                                src={displayed.thumbnail}
+                                src={displayedThumbnail}
                                 alt={`${displayed.title} artwork`}
                                 className="h-full w-full object-cover object-center"
+                                onError={handleDisplayedThumbnailError}
                               />
                             ) : (
                               <div className="h-full w-full bg-white/10 flex items-center justify-center">
@@ -820,104 +955,52 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
                           </div>
                         )}
                       </div>
-
-                      <div className="relative inline-block w-full max-w-full text-center">
-                        <AnimatePresence mode="wait">
-                          {nameSweep && (
-                            <motion.div
-                              key="name-sweep"
-                              className="absolute inset-0 bg-white z-10 pointer-events-none"
-                              initial={{ x: "-100%" }}
-                              animate={nameControls}
-                              exit={{ opacity: 0, transition: { duration: 0 } }}
-                              style={{ borderRadius: 0, height: '100%', width: '100%' }}
-                            />
-                          )}
-                        </AnimatePresence>
-                        <div ref={titleContainerRef} className="relative w-full overflow-hidden">
-                          <motion.div
-                            ref={titleTextRef}
-                            className="inline-block whitespace-nowrap relative z-20"
-                            animate={titleControls}
-                          >
-                            <p className="font-semibold text-white leading-tight text-[22px] mx-auto" style={{ lineHeight: '28px', fontSize: 22 }}>
-                              {displayed.title}
-                            </p>
-                          </motion.div>
-                        </div>
-                      </div>
                     </div>
                   </div>
-                </div>
+                </motion.div>
+                )}
+                </AnimatePresence>
               </motion.div>
             )}
           </AnimatePresence>
 
-          <motion.div
-            className="flex-1 overflow-hidden"
-            animate={{ marginTop: expanded ? 16 : 0, opacity: expanded ? 1 : 0 }}
-            transition={ANIMATION_CONFIG.sweep}
-            style={{ overflow: "hidden" }}
-          >
-            <div className="border-t border-white/10 pt-4 h-full flex flex-col">
-              <div className="flex items-center justify-between mb-3">
-                <p className="text-[10px] text-white/40 uppercase tracking-[.15em] font-medium">Akumoon playlist</p>
-                <p className="text-[10px] text-white/30 font-mono">
-                  {player.trackIndex + 1}/{tracks.length}
-                </p>
-              </div>
-
-              <div className="relative flex-1 min-h-0 overflow-hidden">
-                <div className="absolute inset-0 overflow-y-auto hide-scrollbar" ref={queueRef}>
-                  {/* Indicator arrows that move with current track */}
-                  <motion.div
-                    className="absolute left-0 right-0 flex items-center px-2 h-full pointer-events-none z-10"
-                    animate={{ top: player.trackIndex * 48 + 4 }}
-                    transition={ANIMATION_CONFIG.sweep}
-                    style={{ height: 48 }}
-                  >
-                    <span className="text-white text-sm font-mono animate-pulse leading-none">&gt;</span>
-                    <span className="flex-1" />
-                    <span className="text-white text-sm font-mono animate-pulse leading-none">&lt;</span>
-                  </motion.div>
-
-                  <div className="flex flex-col pt-1 pb-6">
-                    {tracks.map((track, i) => (
-                      <button
-                        key={`${track.title}-${i}`}
-                        onClick={() => handleTrackSelect(i)}
-                        className={`w-full flex items-center gap-3 px-6 text-left transition-all duration-300 ${
-                          player.trackIndex === i ? "bg-white/10" : "hover:bg-white/5"
-                        }`}
-                        style={{ height: 48 }}
+          <div className={`pt-6 mt-auto pb-12 relative ${showPlaylistPopup ? "min-h-[52vh]" : ""}`}>
+              {!showPlaylistPopup && (
+                <div>
+                  <div className="mb-4 px-1">
+                    <div className={`relative px-3 py-2 ${isLayoutTransitioning ? "overflow-visible" : "overflow-hidden"}`}>
+                      <motion.div
+                        layoutId="player-title-block"
+                        className={`relative ${isLayoutTransitioning ? "z-[80] overflow-visible" : "z-20 overflow-hidden"}`}
                       >
-                        <span className={`text-[10px] font-mono transition-colors ${
-                          player.trackIndex === i ? "text-white" : "text-white/30"
-                        }`}>
-                          {String(i + 1).padStart(2, "0")}
-                        </span>
-
-                        <span
-                          className={`text-sm flex-1 truncate text-center transition-colors ${
-                            player.trackIndex === i ? "text-white font-medium" : "text-white/50"
-                          }`}
+                        <motion.p
+                          layoutId="player-title-text"
+                          className={`font-semibold text-white leading-tight text-[20px] relative max-w-full truncate ${isLayoutTransitioning ? "z-[90]" : "z-20"}`}
                         >
-                          {track.title}
-                          {player.loadErrors && player.loadErrors[i] && (
-                            <span className="ml-2 text-[10px] text-rose-400">(file missing)</span>
-                          )}
-                        </span>
-
-                        <AudioBars playing={player.playing && player.trackIndex === i} />
-                      </button>
-                    ))}
+                          {displayed.title}
+                        </motion.p>
+                      </motion.div>
+                      <div className="mt-1">
+                        <motion.div layoutId="player-artist-bar" className={`h-5 w-[120px] bg-white/90 pointer-events-none relative ${isLayoutTransitioning ? "z-[90]" : "z-20"}`} />
+                      </div>
+                    </div>
                   </div>
-                </div>
-              </div>
-            </div>
-          </motion.div>
 
-          <div className="mt-3 grid grid-cols-[1fr_auto_1fr] items-center gap-3">
+                  <div className="mb-4 px-1">
+                    <input
+                      type="range"
+                      min={0}
+                      max={100}
+                      step={0.1}
+                      value={player.progress}
+                      onChange={(event) => player.seekToPercent(Number(event.target.value))}
+                      className="timeline-slider w-full h-3 cursor-pointer"
+                      aria-label="Timeline"
+                      style={{ ["--timeline-progress" as string]: `${player.progress}%` }}
+                    />
+                  </div>
+
+                  <div className="grid items-center gap-3 grid-cols-[1fr_auto_1fr]">
             <div className="flex items-center justify-end gap-3">
               <button
                 onClick={() => {
@@ -926,7 +1009,7 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
                   setShuffleSweep(true)
                 }}
                 disabled={isAnimating || shuffleSweep}
-                className={`w-10 h-10 flex items-center justify-center transition-all rounded-none relative overflow-hidden disabled:cursor-not-allowed ${
+                className={`w-14 h-14 flex items-center justify-center transition-all rounded-none relative overflow-hidden disabled:cursor-not-allowed ${
                   shuffle ? '!bg-white !text-slate-950 hover:bg-slate-100' : '!text-white'
                 }`}
                 title="Shuffle"
@@ -941,42 +1024,51 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
                     />
                   )}
                 </AnimatePresence>
-                <Shuffle className="w-6 h-6 relative z-10" />
+                <Shuffle className="w-8 h-8 relative z-10" />
                 {shuffle && (
-                  <div className="absolute left-2 top-1/2 transform -translate-y-1/2 w-[3px] h-[3px] bg-black rounded-none z-20"></div>
+                  <div className="absolute left-3 top-1/2 transform -translate-y-1/2 w-[4px] h-[4px] bg-black rounded-none z-20"></div>
                 )}
               </button>
 
               <motion.button
+                layout
+                layoutId="player-prev-btn"
+                transition={{ type: "spring", stiffness: 360, damping: 32 }}
                 onClick={handlePrev}
                 disabled={isAnimating}
-                className="w-10 h-10 text-white hover:text-white hover:bg-white/10 transition-all flex items-center justify-center rounded-none disabled:opacity-50 disabled:cursor-not-allowed"
+                className={`w-14 h-14 text-white hover:text-white hover:bg-white/10 transition-all flex items-center justify-center rounded-none disabled:opacity-50 disabled:cursor-not-allowed relative ${isLayoutTransitioning ? "z-[95]" : "z-20"}`}
                 whileTap={{ scale: 0.9 }}
               >
-                <SkipBack className="w-5 h-5" fill="currentColor" />
+                <SkipBack className="w-8 h-8" fill="currentColor" />
               </motion.button>
             </div>
 
             <motion.button
+              layout
+              layoutId="player-play-btn"
+              transition={{ type: "spring", stiffness: 360, damping: 32 }}
               onClick={player.toggle}
-              className="w-12 h-12 bg-white text-slate-950 flex items-center justify-center hover:bg-slate-100 hover:scale-105 transition-transform rounded-none border border-white/10"
+              className={`w-16 h-16 bg-white text-slate-950 flex items-center justify-center hover:bg-slate-100 hover:scale-105 transition-transform rounded-none border border-white/10 relative ${isLayoutTransitioning ? "z-[95]" : "z-20"}`}
               whileTap={{ scale: 0.95 }}
             >
               {player.playing ? (
-                <Pause className="w-4 h-4" fill="currentColor" />
+                <Pause className="w-7 h-7" fill="currentColor" />
               ) : (
-                <Play className="w-4 h-4" fill="currentColor" />
+                <Play className="w-7 h-7" fill="currentColor" />
               )}
             </motion.button>
 
             <div className="flex items-center justify-start gap-3">
               <motion.button
+                layout
+                layoutId="player-next-btn"
+                transition={{ type: "spring", stiffness: 360, damping: 32 }}
                 onClick={handleNext}
                 disabled={isAnimating}
-                className="w-10 h-10 text-white hover:text-white hover:bg-white/10 transition-all flex items-center justify-center rounded-none disabled:opacity-50 disabled:cursor-not-allowed"
+                className={`w-14 h-14 text-white hover:text-white hover:bg-white/10 transition-all flex items-center justify-center rounded-none disabled:opacity-50 disabled:cursor-not-allowed relative ${isLayoutTransitioning ? "z-[95]" : "z-20"}`}
                 whileTap={{ scale: 0.9 }}
               >
-                <SkipForward className="w-5 h-5" fill="currentColor" />
+                <SkipForward className="w-8 h-8" fill="currentColor" />
               </motion.button>
 
               <button
@@ -986,7 +1078,7 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
                   setRepeatSweep(true)
                 }}
                 disabled={repeatSweep}
-                className={`w-10 h-10 flex items-center justify-center transition-all rounded-none relative overflow-hidden disabled:cursor-not-allowed ${
+                className={`w-14 h-14 flex items-center justify-center transition-all rounded-none relative overflow-hidden disabled:cursor-not-allowed ${
                   repeat ? '!bg-white !text-slate-950 hover:bg-slate-100' : '!text-white'
                 }`}
                 title="Repeat"
@@ -1001,13 +1093,57 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
                     />
                   )}
                 </AnimatePresence>
-                <Repeat className="w-6 h-6 relative z-10" />
+                <Repeat className="w-8 h-8 relative z-10" />
                 {repeat && (
-                  <div className="absolute left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/3 w-[3px] h-[3px] bg-black rounded-none z-20"></div>
+                  <div className="absolute left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/3 w-[4px] h-[4px] bg-black rounded-none z-20"></div>
                 )}
               </button>
             </div>
+                  </div>
+                </div>
+              )}
+
+            <div className="mt-4 flex justify-center">
+              <button
+                type="button"
+                onClick={() => setShowPlaylistPopup((prev) => !prev)}
+                className="px-4 py-2 text-sm text-white border border-white/20 hover:bg-white/10 transition-colors rounded-none"
+              >
+                {showPlaylistPopup ? "Close Playlist" : "Playlist"}
+              </button>
+            </div>
+
+            {showPlaylistPopup && showPlaylistOverlay && (
+              <motion.div
+                className="absolute inset-x-0 bottom-0 top-6 bg-black/92 border border-white/15 pt-2 px-1 z-30"
+                initial={{ opacity: 0, y: 24 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 24 }}
+                transition={{ duration: 0.22 }}
+              >
+                <div ref={queueRef} className="h-full overflow-y-auto hide-scrollbar">
+                  {tracks.map((track, i) => (
+                    <button
+                      key={`${track.title}-${i}`}
+                      onClick={() => handleTrackSelect(i)}
+                      className={`w-full flex items-center gap-3 px-2 py-3 text-left transition-colors ${
+                        player.trackIndex === i ? "bg-white/10" : "hover:bg-white/5"
+                      }`}
+                    >
+                      <span className={`text-[10px] font-mono ${player.trackIndex === i ? "text-white" : "text-white/40"}`}>
+                        {String(i + 1).padStart(2, "0")}
+                      </span>
+                      <span className={`flex-1 truncate text-sm ${player.trackIndex === i ? "text-white" : "text-white/70"}`}>
+                        {track.title}
+                      </span>
+                      <AudioBars playing={player.playing && player.trackIndex === i} />
+                    </button>
+                  ))}
+                </div>
+              </motion.div>
+            )}
           </div>
+          </LayoutGroup>
         </motion.div>
       </motion.div>
 

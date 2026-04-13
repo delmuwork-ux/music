@@ -219,3 +219,50 @@ html, body {
 .hide-scrollbar::-webkit-scrollbar {
   display: none;
 }
+
+.timeline-slider {
+  appearance: none;
+  -webkit-appearance: none;
+  background: linear-gradient(
+    to right,
+    #ffffff 0%,
+    #ffffff var(--timeline-progress, 0%),
+    rgba(255, 255, 255, 0.25) var(--timeline-progress, 0%),
+    rgba(255, 255, 255, 0.25) 100%
+  );
+}
+
+.timeline-slider:focus {
+  outline: none;
+}
+
+.timeline-slider::-webkit-slider-runnable-track {
+  height: 12px;
+  background: transparent;
+  border-radius: 0;
+}
+
+.timeline-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 12px;
+  background: #ffffff;
+  border-radius: 0;
+  margin-top: 0;
+}
+
+.timeline-slider::-moz-range-track {
+  height: 12px;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+}
+
+.timeline-slider::-moz-range-thumb {
+  width: 14px;
+  height: 12px;
+  background: #ffffff;
+  border: none;
+  border-radius: 0;
+}

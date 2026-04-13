@@ -5,9 +5,10 @@ interface UseAudioPlayerOptions {
   tracks: Track[]
   autoPlay?: boolean
   mediaRef?: { current: HTMLVideoElement | null }
+  onEnded?: () => void
 }
 
-export function useAudioPlayer({ tracks, autoPlay = false, mediaRef }: UseAudioPlayerOptions) {
+export function useAudioPlayer({ tracks, autoPlay = false, mediaRef, onEnded }: UseAudioPlayerOptions) {
   const audioRef = useRef<HTMLVideoElement | null>(null)
   const lastProgressRef = useRef(0)
   const [playing, setPlaying] = useState(false)
@@ -16,12 +17,17 @@ export function useAudioPlayer({ tracks, autoPlay = false, mediaRef }: UseAudioP
   const [ready, setReady] = useState(false)
   const readyRef = useRef(false)
   const autoPlayRef = useRef(autoPlay)
+  const onEndedRef = useRef<(() => void) | undefined>(onEnded)
 
 
   // track load errors map
   const [loadErrors, setLoadErrors] = useState<Record<number, boolean>>({})
 
   const currentTrack = tracks[trackIndex]
+
+  useEffect(() => {
+    onEndedRef.current = onEnded
+  }, [onEnded])
 
   useEffect(() => {
     if (!currentTrack || !currentTrack.src) return;
@@ -48,6 +54,10 @@ export function useAudioPlayer({ tracks, autoPlay = false, mediaRef }: UseAudioP
     }
 
     audio.onended = () => {
+      if (onEndedRef.current) {
+        onEndedRef.current()
+        return
+      }
       setTrackIndex(i => (i + 1) % tracks.length)
       lastProgressRef.current = 0
       setProgress(0)
@@ -131,6 +141,16 @@ export function useAudioPlayer({ tracks, autoPlay = false, mediaRef }: UseAudioP
     setProgress(0)
   }, [tracks.length])
 
+  const seekToPercent = useCallback((nextPercent: number) => {
+    const audio = audioRef.current
+    if (!audio || !Number.isFinite(audio.duration) || audio.duration <= 0) return
+
+    const boundedPercent = Math.min(100, Math.max(0, nextPercent))
+    audio.currentTime = (boundedPercent / 100) * audio.duration
+    lastProgressRef.current = boundedPercent
+    setProgress(boundedPercent)
+  }, [])
+
   return {
     playing,
     trackIndex,
@@ -143,6 +163,7 @@ export function useAudioPlayer({ tracks, autoPlay = false, mediaRef }: UseAudioP
     setTrack: changeTrack,
     next,
     prev,
+    seekToPercent,
     // load error state
     loadErrors,
     audioRef,

@@ -5,22 +5,44 @@ import path from 'path'
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 
-const MUSIC_DIR = path.join(process.cwd(), 'public', 'music')
-const THUMBNAIL_DIR = path.join(process.cwd(), 'public', 'thumbail')
+const MEDIA_DIR_NAME = 'music & thumbail'
+const MEDIA_DIR = path.join(process.cwd(), 'public', MEDIA_DIR_NAME)
+const MEDIA_PUBLIC_PREFIX = `/${encodeURIComponent(MEDIA_DIR_NAME)}`
 const VIDEO_DIR = path.join(process.cwd(), 'public', 'video')
 const MOBILE_VIDEO_DIR = path.join(process.cwd(), 'public', 'video-mobile')
-const AUDIO_EXTS = ['.mp3', '.webm', '.wav', '.ogg', '.m4a']
-const IMAGE_EXTS = ['.jpg', '.jpeg', '.png', '.webp']
+const AUDIO_EXTS = ['.m4a']
+const IMAGE_EXTS = ['.jpg']
 const VIDEO_EXTS = ['.mp4', '.webm', '.mov', '.m4v']
 
 function getDurationPlaceholder(filename: string) {
   return '--:--'
 }
 
-function resolveThumbnail(thumbnailFiles: string[], filename: string) {
+function normalizeStem(value: string) {
+  return value
+    .normalize('NFKC')
+    .toLowerCase()
+    .replace(/\s*-\s*/g, '-')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+function resolveThumbnail(mediaFiles: string[], filename: string) {
   const base = path.parse(filename).name
-  const match = IMAGE_EXTS.map(ext => `${base}${ext}`).find(image => thumbnailFiles.includes(image))
-  return match ? `/thumbail/${encodeURIComponent(match)}` : undefined
+  const imageFiles = mediaFiles.filter(file => IMAGE_EXTS.includes(path.extname(file).toLowerCase()))
+
+  const exactMatch = IMAGE_EXTS
+    .map(ext => `${base}${ext}`)
+    .find(image => imageFiles.some(file => file.toLowerCase() === image.toLowerCase()))
+
+  if (exactMatch) {
+    const matchedFilename = imageFiles.find(file => file.toLowerCase() === exactMatch.toLowerCase())
+    return matchedFilename ? `${MEDIA_PUBLIC_PREFIX}/${encodeURIComponent(matchedFilename)}` : undefined
+  }
+
+  const normalizedAudioStem = normalizeStem(base)
+  const fuzzyMatch = imageFiles.find(imageFile => normalizeStem(path.parse(imageFile).name) === normalizedAudioStem)
+  return fuzzyMatch ? `${MEDIA_PUBLIC_PREFIX}/${encodeURIComponent(fuzzyMatch)}` : undefined
 }
 
 function resolveVideo(videoFiles: string[], mobileVideoFiles: string[], filename: string, preferMobile = false) {
@@ -39,7 +61,7 @@ function resolveVideo(videoFiles: string[], mobileVideoFiles: string[], filename
   }
 
   if (VIDEO_EXTS.includes(path.extname(filename).toLowerCase())) {
-    return `/music/${encodeURIComponent(filename)}`
+    return `${MEDIA_PUBLIC_PREFIX}/${encodeURIComponent(filename)}`
   }
 
   return undefined
@@ -49,20 +71,19 @@ export async function GET(request: Request) {
   try {
     const requestUrl = new URL(request.url)
     const preferMobile = requestUrl.searchParams.get('profile') === 'mobile'
-    const files = fs.readdirSync(MUSIC_DIR)
-    const thumbnailFiles = fs.existsSync(THUMBNAIL_DIR) ? fs.readdirSync(THUMBNAIL_DIR) : []
+    const files = fs.readdirSync(MEDIA_DIR)
     const videoFiles = fs.existsSync(VIDEO_DIR) ? fs.readdirSync(VIDEO_DIR) : []
     const mobileVideoFiles = fs.existsSync(MOBILE_VIDEO_DIR) ? fs.readdirSync(MOBILE_VIDEO_DIR) : []
     const tracks = files.filter(f => AUDIO_EXTS.includes(path.extname(f).toLowerCase())).map(f => ({
       title: path.parse(f).name,
-      artist: '',
+      artist: 'Unknown Artist',
       duration: getDurationPlaceholder(f),
-      src: `/music/${encodeURIComponent(f)}`,
-      thumbnail: resolveThumbnail(thumbnailFiles, f),
+      src: `${MEDIA_PUBLIC_PREFIX}/${encodeURIComponent(f)}`,
+      thumbnail: resolveThumbnail(files, f),
       video: resolveVideo(videoFiles, mobileVideoFiles, f, preferMobile),
     }))
     return NextResponse.json({ tracks })
   } catch (err) {
-    return NextResponse.json({ error: 'Failed to read music directory', detail: String(err) }, { status: 500 })
+    return NextResponse.json({ error: `Failed to read ${MEDIA_DIR_NAME} directory`, detail: String(err) }, { status: 500 })
   }
 }
