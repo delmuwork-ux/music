@@ -688,6 +688,7 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
           className="h-full flex flex-col relative z-10"
           animate={{ padding: expanded ? 16 : 10 }}
           transition={ANIMATION_CONFIG.sweep}
+          style={{ padding: expanded ? "clamp(10px, 2.8vw, 16px)" : "clamp(8px, 2vw, 10px)" }}
         >
           <LayoutGroup>
           <AnimatePresence>
@@ -754,7 +755,7 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
                       onClick={() => setShowPlaylistPopup(false)}
                       layoutId="player-artwork"
                       transition={{ type: "spring", stiffness: 360, damping: 32 }}
-                      className="w-16 h-16 bg-white/10 overflow-hidden flex items-center justify-center shrink-0"
+                      className="w-12 h-12 sm:w-14 sm:h-14 md:w-16 md:h-16 bg-white/10 overflow-hidden flex items-center justify-center shrink-0"
                       title="Quay lại player lớn"
                     >
                       {displayedThumbnail ? (
@@ -789,31 +790,31 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
                         transition={{ type: "spring", stiffness: 360, damping: 32 }}
                         onClick={handlePrev}
                         disabled={isAnimating}
-                        className={`w-12 h-12 text-white hover:text-white hover:bg-white/10 transition-all flex items-center justify-center rounded-none disabled:opacity-50 disabled:cursor-not-allowed relative ${isLayoutTransitioning ? "z-[95]" : "z-20"}`}
+                        className={`w-10 h-10 sm:w-12 sm:h-12 text-white hover:text-white hover:bg-white/10 transition-all flex items-center justify-center rounded-none disabled:opacity-50 disabled:cursor-not-allowed relative ${isLayoutTransitioning ? "z-[95]" : "z-20"}`}
                         whileTap={{ scale: 0.9 }}
                       >
-                        <SkipBack className="w-7 h-7" fill="currentColor" />
+                        <SkipBack className="w-5 h-5 sm:w-7 sm:h-7" fill="currentColor" />
                       </motion.button>
                       <motion.button
                         layout
                         layoutId="player-play-btn"
                         transition={{ type: "spring", stiffness: 360, damping: 32 }}
                         onClick={player.toggle}
-                        className={`w-12 h-12 bg-white text-slate-950 flex items-center justify-center hover:bg-slate-100 transition-transform rounded-none border border-white/10 relative ${isLayoutTransitioning ? "z-[95]" : "z-20"}`}
+                        className={`w-11 h-11 sm:w-12 sm:h-12 bg-white text-slate-950 flex items-center justify-center hover:bg-slate-100 transition-transform rounded-none border border-white/10 relative ${isLayoutTransitioning ? "z-[95]" : "z-20"}`}
                         whileTap={{ scale: 0.95 }}
                       >
-                        {player.playing ? <Pause className="w-6 h-6" fill="currentColor" /> : <Play className="w-6 h-6" fill="currentColor" />}
+                        {player.playing ? <Pause className="w-5 h-5 sm:w-6 sm:h-6" fill="currentColor" /> : <Play className="w-5 h-5 sm:w-6 sm:h-6" fill="currentColor" />}
                       </motion.button>
                       <motion.button
                         layout
                         layoutId="player-next-btn"
                         transition={{ type: "spring", stiffness: 360, damping: 32 }}
-                        onClick={handleNext}
+                        onClick={() => handleNext()}
                         disabled={isAnimating}
-                        className={`w-12 h-12 text-white hover:text-white hover:bg-white/10 transition-all flex items-center justify-center rounded-none disabled:opacity-50 disabled:cursor-not-allowed relative ${isLayoutTransitioning ? "z-[95]" : "z-20"}`}
+                        className={`w-10 h-10 sm:w-12 sm:h-12 text-white hover:text-white hover:bg-white/10 transition-all flex items-center justify-center rounded-none disabled:opacity-50 disabled:cursor-not-allowed relative ${isLayoutTransitioning ? "z-[95]" : "z-20"}`}
                         whileTap={{ scale: 0.9 }}
                       >
-                        <SkipForward className="w-7 h-7" fill="currentColor" />
+                        <SkipForward className="w-5 h-5 sm:w-7 sm:h-7" fill="currentColor" />
                       </motion.button>
                     </div>
                   </motion.div>
@@ -832,7 +833,7 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
                           <motion.div
                             layoutId="player-artwork"
                             ref={focusCardRef}
-                            className={`w-[min(88vw,360px)] h-[min(88vw,360px)] bg-white/5 relative ${
+                            className={`w-[min(74vw,360px)] sm:w-[min(80vw,360px)] h-[min(74vw,360px)] sm:h-[min(80vw,360px)] bg-white/5 relative ${
                               focusMode ? "fixed inset-0 m-auto z-[130] shadow-[0_0_0_1px_rgba(255,255,255,.15),0_30px_80px_rgba(0,0,0,.55)]" : ""
                             }`}
                             animate={focusMode ? { scale: 1.06 } : { scale: 1 }}
@@ -905,7 +906,7 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
                               />
                             ) : (
                               <div className="h-full w-full bg-white/10 flex items-center justify-center">
-                                <Music2 className="w-12 h-12 text-white/70" />
+                                <Music2 className="w-10 h-10 sm:w-12 sm:h-12 text-white/70" />
                               </div>
                             )}
                             <AnimatePresence mode="wait">
@@ -933,7 +934,7 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
                                       setShowVideo(true)
                                     }
                                   }}
-                                  className={`absolute left-1/2 top-full -translate-x-1/2 mt-3 z-[140] w-12 h-12 flex items-center justify-center rounded-none border transition-colors ${
+                                  className={`absolute left-1/2 top-full -translate-x-1/2 mt-3 z-[140] w-10 h-10 sm:w-12 sm:h-12 flex items-center justify-center rounded-none border transition-colors ${
                                     showVideo
                                       ? "bg-white text-slate-950 border-white hover:bg-slate-100"
                                       : "bg-black/55 text-white border-white/30 hover:bg-black/75"
@@ -944,14 +945,14 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
                                   transition={{ duration: 0.25, ease: "easeOut" }}
                                   title={showVideo ? "Hiện ảnh bìa" : "Hiện video"}
                                 >
-                                  {showVideo ? <ImageIcon className="w-5 h-5" /> : <Video className="w-5 h-5" />}
+                                  {showVideo ? <ImageIcon className="w-4 h-4 sm:w-5 sm:h-5" /> : <Video className="w-4 h-4 sm:w-5 sm:h-5" />}
                                 </motion.button>
                               )}
                             </AnimatePresence>
                           </motion.div>
                         ) : (
-                          <div className="w-[min(88vw,360px)] h-[min(88vw,360px)] overflow-hidden bg-white/10 flex items-center justify-center">
-                            <Music2 className="w-12 h-12 text-white/70" />
+                          <div className="w-[min(74vw,360px)] sm:w-[min(80vw,360px)] h-[min(74vw,360px)] sm:h-[min(80vw,360px)] overflow-hidden bg-white/10 flex items-center justify-center">
+                            <Music2 className="w-10 h-10 sm:w-12 sm:h-12 text-white/70" />
                           </div>
                         )}
                       </div>
@@ -975,7 +976,7 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
                       >
                         <motion.p
                           layoutId="player-title-text"
-                          className={`font-semibold text-white leading-tight text-[20px] relative max-w-full truncate ${isLayoutTransitioning ? "z-[90]" : "z-20"}`}
+                          className={`font-semibold text-white leading-tight text-[16px] sm:text-[20px] relative max-w-full truncate ${isLayoutTransitioning ? "z-[90]" : "z-20"}`}
                         >
                           {displayed.title}
                         </motion.p>
@@ -1000,7 +1001,7 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
                     />
                   </div>
 
-                  <div className="grid items-center gap-3 grid-cols-[1fr_auto_1fr]">
+                  <div className="grid items-center gap-2 sm:gap-3 grid-cols-[1fr_auto_1fr]">
             <div className="flex items-center justify-end gap-3">
               <button
                 onClick={() => {
@@ -1009,7 +1010,7 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
                   setShuffleSweep(true)
                 }}
                 disabled={isAnimating || shuffleSweep}
-                className={`w-14 h-14 flex items-center justify-center transition-all rounded-none relative overflow-hidden disabled:cursor-not-allowed ${
+                className={`w-10 h-10 sm:w-14 sm:h-14 flex items-center justify-center transition-all rounded-none relative overflow-hidden disabled:cursor-not-allowed ${
                   shuffle ? '!bg-white !text-slate-950 hover:bg-slate-100' : '!text-white'
                 }`}
                 title="Shuffle"
@@ -1024,7 +1025,7 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
                     />
                   )}
                 </AnimatePresence>
-                <Shuffle className="w-8 h-8 relative z-10" />
+                <Shuffle className="w-5 h-5 sm:w-8 sm:h-8 relative z-10" />
                 {shuffle && (
                   <div className="absolute left-3 top-1/2 transform -translate-y-1/2 w-[4px] h-[4px] bg-black rounded-none z-20"></div>
                 )}
@@ -1036,10 +1037,10 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
                 transition={{ type: "spring", stiffness: 360, damping: 32 }}
                 onClick={handlePrev}
                 disabled={isAnimating}
-                className={`w-14 h-14 text-white hover:text-white hover:bg-white/10 transition-all flex items-center justify-center rounded-none disabled:opacity-50 disabled:cursor-not-allowed relative ${isLayoutTransitioning ? "z-[95]" : "z-20"}`}
+                className={`w-10 h-10 sm:w-14 sm:h-14 text-white hover:text-white hover:bg-white/10 transition-all flex items-center justify-center rounded-none disabled:opacity-50 disabled:cursor-not-allowed relative ${isLayoutTransitioning ? "z-[95]" : "z-20"}`}
                 whileTap={{ scale: 0.9 }}
               >
-                <SkipBack className="w-8 h-8" fill="currentColor" />
+                <SkipBack className="w-5 h-5 sm:w-8 sm:h-8" fill="currentColor" />
               </motion.button>
             </div>
 
@@ -1048,13 +1049,13 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
               layoutId="player-play-btn"
               transition={{ type: "spring", stiffness: 360, damping: 32 }}
               onClick={player.toggle}
-              className={`w-16 h-16 bg-white text-slate-950 flex items-center justify-center hover:bg-slate-100 hover:scale-105 transition-transform rounded-none border border-white/10 relative ${isLayoutTransitioning ? "z-[95]" : "z-20"}`}
+              className={`w-12 h-12 sm:w-16 sm:h-16 bg-white text-slate-950 flex items-center justify-center hover:bg-slate-100 hover:scale-105 transition-transform rounded-none border border-white/10 relative ${isLayoutTransitioning ? "z-[95]" : "z-20"}`}
               whileTap={{ scale: 0.95 }}
             >
               {player.playing ? (
-                <Pause className="w-7 h-7" fill="currentColor" />
+                <Pause className="w-5 h-5 sm:w-7 sm:h-7" fill="currentColor" />
               ) : (
-                <Play className="w-7 h-7" fill="currentColor" />
+                <Play className="w-5 h-5 sm:w-7 sm:h-7" fill="currentColor" />
               )}
             </motion.button>
 
@@ -1063,12 +1064,12 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
                 layout
                 layoutId="player-next-btn"
                 transition={{ type: "spring", stiffness: 360, damping: 32 }}
-                onClick={handleNext}
+                onClick={() => handleNext()}
                 disabled={isAnimating}
-                className={`w-14 h-14 text-white hover:text-white hover:bg-white/10 transition-all flex items-center justify-center rounded-none disabled:opacity-50 disabled:cursor-not-allowed relative ${isLayoutTransitioning ? "z-[95]" : "z-20"}`}
+                className={`w-10 h-10 sm:w-14 sm:h-14 text-white hover:text-white hover:bg-white/10 transition-all flex items-center justify-center rounded-none disabled:opacity-50 disabled:cursor-not-allowed relative ${isLayoutTransitioning ? "z-[95]" : "z-20"}`}
                 whileTap={{ scale: 0.9 }}
               >
-                <SkipForward className="w-8 h-8" fill="currentColor" />
+                <SkipForward className="w-5 h-5 sm:w-8 sm:h-8" fill="currentColor" />
               </motion.button>
 
               <button
@@ -1078,7 +1079,7 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
                   setRepeatSweep(true)
                 }}
                 disabled={repeatSweep}
-                className={`w-14 h-14 flex items-center justify-center transition-all rounded-none relative overflow-hidden disabled:cursor-not-allowed ${
+                className={`w-10 h-10 sm:w-14 sm:h-14 flex items-center justify-center transition-all rounded-none relative overflow-hidden disabled:cursor-not-allowed ${
                   repeat ? '!bg-white !text-slate-950 hover:bg-slate-100' : '!text-white'
                 }`}
                 title="Repeat"
@@ -1093,7 +1094,7 @@ export function MusicPlayer({ isVisible = false }: MusicPlayerProps) {
                     />
                   )}
                 </AnimatePresence>
-                <Repeat className="w-8 h-8 relative z-10" />
+                <Repeat className="w-5 h-5 sm:w-8 sm:h-8 relative z-10" />
                 {repeat && (
                   <div className="absolute left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/3 w-[4px] h-[4px] bg-black rounded-none z-20"></div>
                 )}
